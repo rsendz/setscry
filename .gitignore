@@ -1,0 +1,9 @@
+.DS_Store
+.build/
+.swiftpm/
+*.xcodeproj
+DerivedData/
+Build/
+dist/
+*.iconset
+*.zip
