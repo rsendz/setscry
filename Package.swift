@@ -9,5 +9,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "SetscryCore"),
+        .testTarget(name: "SetscryCoreTests", dependencies: ["SetscryCore"]),
     ]
 )
