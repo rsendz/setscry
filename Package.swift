@@ -8,6 +8,7 @@ let package = Package(
         .library(name: "SetscryCore", targets: ["SetscryCore"]),
         .library(name: "SetscryML", targets: ["SetscryML"]),
         .library(name: "SetscryMLX", targets: ["SetscryMLX"]),
+        .executable(name: "Setscry", targets: ["Setscry"]),
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift", .upToNextMinor(from: "0.31.6")),
@@ -25,9 +26,14 @@ let package = Package(
                 .product(name: "MLXNN", package: "mlx-swift"),
             ]
         ),
+        .executableTarget(
+            name: "Setscry",
+            dependencies: ["SetscryCore", "SetscryML", "SetscryMLX"],
+            path: "Sources/SetscryApp"
+        ),
         .testTarget(
             name: "SetscryCoreTests",
-            dependencies: ["SetscryCore", "SetscryML", "SetscryMLX"]
+            dependencies: ["SetscryCore", "SetscryML", "SetscryMLX", "Setscry"]
         ),
     ]
 )

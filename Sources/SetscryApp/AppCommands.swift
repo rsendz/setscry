@@ -1,0 +1,58 @@
+//
+//  AppCommands.swift
+//  Setscry
+//
+//  Created by Luis Resendez on 09/08/2026.
+//
+
+import SwiftUI
+
+/// The menu bar.
+///
+/// Commands live outside the view hierarchy, which is why the models are owned
+/// by the `App` and handed to both here and to the views.
+struct AppCommands: Commands {
+    let model: AppModel
+    let semantic: SemanticModel
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("Open Folder…") { model.chooseFolder() }
+                .keyboardShortcut("o")
+
+            Menu("Open Recent") {
+                ForEach(model.recentFolders, id: \.self) { folder in
+                    Button(folder.lastPathComponent) { model.open(folder: folder) }
+                }
+
+                if !model.recentFolders.isEmpty {
+                    Divider()
+                    Button("Clear Menu") { model.clearRecentFolders() }
+                }
+            }
+            .disabled(model.recentFolders.isEmpty)
+        }
+
+        CommandGroup(after: .saveItem) {
+            Button("Rescan Folder") { model.rescan() }
+                .keyboardShortcut("r")
+                .disabled(model.analysis == nil)
+
+            Button("Close Dataset") { model.close() }
+                .keyboardShortcut("w", modifiers: [.command, .shift])
+                .disabled(model.analysis == nil)
+        }
+
+        CommandMenu("Go") {
+            // ⌘1…⌘9, in the order the sidebar lists them.
+            ForEach(Array(DatasetSection.allCases.enumerated()), id: \.element) { index, section in
+                Button(section.title) { model.selectedSection = section }
+                    .keyboardShortcut(
+                        KeyEquivalent(Character("\(index + 1)")),
+                        modifiers: .command
+                    )
+                    .disabled(model.analysis == nil)
+            }
+        }
+    }
+}
