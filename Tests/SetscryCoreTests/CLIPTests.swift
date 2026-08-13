@@ -15,7 +15,7 @@ import Testing
 /// The tokenizer and preprocessor tests run anywhere. The tests that need the
 /// weights are skipped unless the model has already been downloaded, so a plain
 /// `swift test` never pulls 600 MB; run the app once, or set
-/// `SPECIR_DOWNLOAD_MODEL=1`, to exercise them.
+/// `SETSCRY_DOWNLOAD_MODEL=1`, to exercise them.
 @Suite("CLIP")
 struct CLIPTests {
     // MARK: - Tokenizer
@@ -122,7 +122,7 @@ struct CLIPTests {
         guard MLXRuntime.isAvailable else { return nil }
 
         let embedder = CLIPEmbedder(source: .vitBase32)
-        let wantsDownload = ProcessInfo.processInfo.environment["SPECIR_DOWNLOAD_MODEL"] == "1"
+        let wantsDownload = ProcessInfo.processInfo.environment["SETSCRY_DOWNLOAD_MODEL"] == "1"
 
         guard embedder.isReady || wantsDownload else { return nil }
 

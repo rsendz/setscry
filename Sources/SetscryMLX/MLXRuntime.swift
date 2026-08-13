@@ -17,9 +17,9 @@ import MLX
 /// when the CPU device is selected. So the check has to happen before MLX is
 /// touched at all, which is what this type is for.
 public enum MLXRuntime {
-    /// Set `SPECIR_MLX_METALLIB` to the path of a compiled `default.metallib`
+    /// Set `SETSCRY_MLX_METALLIB` to the path of a compiled `default.metallib`
     /// to use one built elsewhere.
-    private static let overrideKey = "SPECIR_MLX_METALLIB"
+    private static let overrideKey = "SETSCRY_MLX_METALLIB"
 
     public static let metalLibraryURL: URL? = findMetalLibrary()
 

@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    # macos-26 for Xcode 26: mlx-swift's manifest is tools-version 6.3, which
+    # the Swift 6.1 on macos-15 cannot read, so dependency resolution fails
+    # before anything is compiled.
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      # MLX compiles a large C++ target that dominates the build time, so the
+      # whole build directory is cached rather than just the checkouts.
+      - name: Cache build directory
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: ${{ runner.os }}-spm-
+
+      # Building and testing are separate steps so a compile failure reads
+      # differently from a test failure in the log.
+      - name: Build
+        run: swift build --build-tests
+
+      # No mlx.metallib is fetched here: without compiled Metal kernels every
+      # MLX-backed test skips itself, and the CLIP tests additionally need
+      # SETSCRY_DOWNLOAD_MODEL=1 and a 600 MB download. Both are run locally.
+      - name: Test
+        run: swift test --skip-build

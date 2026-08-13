@@ -86,12 +86,13 @@ for DIR in .build/*/debug .build/*/release; do
     echo "  installed → $DIR/mlx.metallib"
     INSTALLED=$((INSTALLED + 1))
 
-    # The test runner resolves "next to the binary" inside the bundle.
-    BUNDLE="$DIR/SetscryPackageTests.xctest/Contents/MacOS"
-    if [ -d "$BUNDLE" ]; then
+    # The test runner resolves "next to the binary" inside the bundle. Globbed
+    # rather than named, so renaming the package never silently skips this.
+    for BUNDLE in "$DIR"/*.xctest/Contents/MacOS; do
+        [ -d "$BUNDLE" ] || continue
         cp "$LIB" "$BUNDLE/mlx.metallib"
         echo "  installed → $BUNDLE/mlx.metallib"
-    fi
+    done
 done
 
 if [ "$INSTALLED" -eq 0 ]; then
