@@ -22,6 +22,13 @@ public struct Embedding: Hashable, Sendable {
         self.values = magnitude > 0 ? values.map { $0 / magnitude } : values
     }
 
+    /// Takes the values as given, for callers that already hold a unit vector —
+    /// reading one back from the cache, say. Normalizing again would cost a pass
+    /// and change the low bits, which would make a round trip lossy.
+    public init(normalized values: [Float]) {
+        self.values = values
+    }
+
     public var dimension: Int { values.count }
 
     /// Cosine similarity in `-1...1`, or `0` for mismatched dimensions.

@@ -42,9 +42,22 @@ final class SemanticModel {
     /// from typed text, so the view can say what it is comparing against.
     private(set) var searchSubject: ImageRecord?
 
+    /// How many images this run took from the cache instead of embedding again.
+    /// Surfaced during the run so the saved work is visible rather than implied.
+    private(set) var reusedCount = 0
+    /// Size of the cache on disk, so the menu item that clears it can say what
+    /// clearing it frees.
+    private(set) var cachedEmbeddingBytes: Int64 = 0
+
     private let embedder = CLIPEmbedder()
+    private let store: EmbeddingStore
     private var work: Task<Void, Never>?
     private var searchTask: Task<Void, Never>?
+
+    init() {
+        store = EmbeddingStore(providerIdentifier: embedder.identifier)
+        Task { await refreshCacheSize() }
+    }
 
     /// How large the download is and what it buys, shown before it starts.
     nonisolated var modelDescription: String { embedder.details }
@@ -91,9 +104,7 @@ final class SemanticModel {
                     Task { @MainActor in self.report(download: progress) }
                 }
 
-                self.phase = .embedding(completed: 0, total: records.count)
-
-                let embeddings = try await self.embed(records.map(\.url))
+                let embeddings = try await self.embed(records)
                 try Task.checkCancellation()
 
                 let index = EmbeddingIndex(
@@ -109,6 +120,7 @@ final class SemanticModel {
                 self.clusters = clusters
                 self.labelSuggestions = suggestions
                 self.phase = .ready
+                await self.refreshCacheSize()
             } catch is CancellationError {
                 self.phase = .idle
             } catch {
@@ -123,8 +135,12 @@ final class SemanticModel {
         phase = .idle
     }
 
+    /// Clears everything about the folder being looked at. Deliberately leaves
+    /// the embedding cache alone: outliving a change of folder is the whole
+    /// point of it.
     func reset() {
         cancel()
+        reusedCount = 0
         index = nil
         clusters = []
         labelSuggestions = []
@@ -133,30 +149,55 @@ final class SemanticModel {
         searchSubject = nil
     }
 
-    /// Embeds in batches so progress is visible and memory stays bounded.
-    private func embed(_ urls: [URL]) async throws -> [URL: Embedding] {
-        var results: [URL: Embedding] = [:]
-        results.reserveCapacity(urls.count)
+    /// Embeds in batches so progress is visible and memory stays bounded, taking
+    /// whatever the cache already holds instead of embedding it again.
+    ///
+    /// The cache is keyed by file content, so this skips more than images seen in
+    /// a previous session: renamed files, copies, and images moved in from another
+    /// folder all arrive already embedded.
+    private func embed(_ records: [ImageRecord]) async throws -> [URL: Embedding] {
+        await store.load()
+        var results = await store.cached(for: records)
+        reusedCount = results.count
+
+        let pending = records.filter { results[$0.url] == nil }
+        phase = .embedding(completed: reusedCount, total: records.count)
 
         let batchSize = 16
         var start = 0
 
-        while start < urls.count {
+        while start < pending.count {
             try Task.checkCancellation()
 
-            let batch = Array(urls[start..<min(start + batchSize, urls.count)])
-            let embeddings = try await embedder.embed(imagesAt: batch)
+            let batch = Array(pending[start..<min(start + batchSize, pending.count)])
+            let embeddings = try await embedder.embed(imagesAt: batch.map(\.url))
 
-            for (url, embedding) in zip(batch, embeddings) {
-                results[url] = embedding
+            var fresh: [(contentHash: String, embedding: Embedding)] = []
+            for (record, embedding) in zip(batch, embeddings) {
+                results[record.url] = embedding
+                if let hash = record.contentHash {
+                    fresh.append((contentHash: hash, embedding: embedding))
+                }
             }
 
+            // Written per batch rather than at the end, so quitting part-way
+            // through a large folder keeps everything embedded so far.
+            await store.append(fresh)
+
             start += batch.count
-            let completed = start
-            phase = .embedding(completed: completed, total: urls.count)
+            phase = .embedding(completed: reusedCount + start, total: records.count)
         }
 
         return results
+    }
+
+    func clearCachedEmbeddings() async {
+        await store.removeAll()
+        await refreshCacheSize()
+    }
+
+    private func refreshCacheSize() async {
+        cachedEmbeddingBytes = await store.fileSize
     }
 
     /// Ranks the folder by similarity to one of its own images.

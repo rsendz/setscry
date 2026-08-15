@@ -15,6 +15,14 @@ struct AppCommands: Commands {
     let model: AppModel
     let semantic: SemanticModel
 
+    /// Names the size in the menu item, so clearing the cache is an informed
+    /// choice rather than a guess at what is about to be thrown away.
+    private var clearCacheTitle: String {
+        let bytes = semantic.cachedEmbeddingBytes
+        guard bytes > 0 else { return "Clear Cached Image Readings" }
+        return "Clear Cached Image Readings (\(bytes.formatted(.byteCount(style: .file))))"
+    }
+
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("Open Folder…") { model.chooseFolder() }
@@ -41,6 +49,13 @@ struct AppCommands: Commands {
             Button("Close Dataset") { model.close() }
                 .keyboardShortcut("w", modifiers: [.command, .shift])
                 .disabled(model.analysis == nil)
+
+            Divider()
+
+            Button(clearCacheTitle) {
+                Task { await semantic.clearCachedEmbeddings() }
+            }
+            .disabled(semantic.cachedEmbeddingBytes == 0)
         }
 
         CommandMenu("Go") {

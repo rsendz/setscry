@@ -70,7 +70,7 @@ struct SemanticSetupView: View {
         case .embedding(let completed, let total):
             progressView(
                 title: "Reading images with the model",
-                detail: "\(completed.formatted()) of \(total.formatted())",
+                detail: embeddingDetail(completed: completed, total: total),
                 fraction: total > 0 ? Double(completed) / Double(total) : nil
             )
 
@@ -111,6 +111,12 @@ struct SemanticSetupView: View {
         .frame(maxWidth: 380)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(40)
+    }
+
+    private func embeddingDetail(completed: Int, total: Int) -> String {
+        let progress = "\(completed.formatted()) of \(total.formatted())"
+        guard semantic.reusedCount > 0 else { return progress }
+        return "\(progress) · \(semantic.reusedCount.formatted()) already read earlier"
     }
 
     private func byteDetail(for progress: CLIPModelStore.Progress) -> String {
