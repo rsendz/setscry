@@ -58,6 +58,13 @@ struct AppCommands: Commands {
             .disabled(semantic.cachedEmbeddingBytes == 0)
         }
 
+        CommandGroup(replacing: .help) {
+            Button("Setscry Help") {
+                NotificationCenter.default.post(name: .showSetscryHelp, object: nil)
+            }
+            .keyboardShortcut("?", modifiers: .command)
+        }
+
         CommandMenu("Go") {
             // ⌘1…⌘9, in the order the sidebar lists them.
             ForEach(Array(DatasetSection.allCases.enumerated()), id: \.element) { index, section in

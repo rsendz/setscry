@@ -133,6 +133,19 @@ public actor CLIPEmbedder: TextEmbeddingProvider {
         return embeddings(from: features)
     }
 
+    /// The batched entry point the app uses, keyed by URL.
+    ///
+    /// Overrides the protocol's concurrent default so the whole batch still goes
+    /// through the model in one pass.
+    public func embed(
+        imagesAt urls: [URL],
+        onProgress: @escaping @Sendable (Int, Int) -> Void
+    ) async throws -> [URL: SetscryML.Embedding] {
+        let embeddings = try await embed(imagesAt: urls)
+        onProgress(embeddings.count, urls.count)
+        return Dictionary(uniqueKeysWithValues: zip(urls, embeddings))
+    }
+
     public func embed(text: String) async throws -> SetscryML.Embedding {
         guard let model, let tokenizer else { throw Failure.modelNotDownloaded }
 

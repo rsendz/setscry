@@ -27,19 +27,34 @@ public protocol EmbeddingProvider: Sendable {
     func prepare() async throws
 
     func embed(imageAt url: URL) async throws -> Embedding
+
+    /// Embeds a batch of images.
+    ///
+    /// A requirement rather than a convenience, so that a backend able to push a
+    /// whole batch through in one pass gets to. Left to the default, a batching
+    /// model would be called image by image and give up most of its speed.
+    func embed(
+        imagesAt urls: [URL],
+        onProgress: @escaping @Sendable (Int, Int) -> Void
+    ) async throws -> [URL: Embedding]
 }
 
 public extension EmbeddingProvider {
     func prepare() async throws {}
 
+    func embed(imagesAt urls: [URL]) async throws -> [URL: Embedding] {
+        try await embed(imagesAt: urls, onProgress: { _, _ in })
+    }
+
     /// Embeds many images with bounded concurrency, reporting progress as each
     /// finishes. Failures are skipped rather than aborting the batch.
     func embed(
         imagesAt urls: [URL],
-        maxConcurrent: Int = max(2, ProcessInfo.processInfo.activeProcessorCount),
-        onProgress: @escaping @Sendable (Int, Int) -> Void = { _, _ in }
+        onProgress: @escaping @Sendable (Int, Int) -> Void
     ) async throws -> [URL: Embedding] {
         guard !urls.isEmpty else { return [:] }
+
+        let maxConcurrent = max(2, ProcessInfo.processInfo.activeProcessorCount)
 
         var results: [URL: Embedding] = [:]
         results.reserveCapacity(urls.count)
@@ -75,4 +90,16 @@ public extension EmbeddingProvider {
 /// feature print does not.
 public protocol TextEmbeddingProvider: EmbeddingProvider {
     func embed(text: String) async throws -> Embedding
+
+    /// Embeds what someone typed into the search field. Separate from
+    /// ``embed(text:)`` because a model trained on captions needs the query
+    /// wrapped in the phrasing it was trained on, and only the backend knows
+    /// what that is.
+    func embed(searchQuery: String) async throws -> Embedding
+}
+
+public extension TextEmbeddingProvider {
+    func embed(searchQuery: String) async throws -> Embedding {
+        try await embed(text: searchQuery)
+    }
 }

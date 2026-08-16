@@ -19,15 +19,7 @@ struct SemanticSetupView: View {
     @Environment(SemanticModel.self) private var semantic
 
     var body: some View {
-        if !semantic.isSupported {
-            ContentUnavailableView {
-                Label("Not available in this build", systemImage: "cpu")
-            } description: {
-                Text(semantic.unsupportedReason)
-            }
-        } else {
-            phaseContent
-        }
+        phaseContent
     }
 
     @ViewBuilder
@@ -47,16 +39,18 @@ struct SemanticSetupView: View {
                 }
                 .multilineTextAlignment(.center)
             } actions: {
-                Button(semantic.isModelDownloaded ? "Analyze Images" : "Download Model and Analyze") {
-                    semantic.build(for: analysis)
+                VStack(spacing: 12) {
+                    Button("Read the Images") { semantic.build(for: analysis) }
+                        .buttonStyle(.borderedProminent)
+
+                    upgradeOffer
                 }
-                .buttonStyle(.borderedProminent)
             }
 
         case .preparing:
             progressView(
                 title: "Getting the model ready",
-                detail: semantic.isModelDownloaded ? "Loading weights" : "Starting download",
+                detail: semantic.isModelReady ? "Loading the model" : "Starting download",
                 fraction: nil
             )
 
@@ -85,6 +79,41 @@ struct SemanticSetupView: View {
 
         case .ready:
             EmptyView()
+        }
+    }
+
+    /// The one place CLIP is offered. It stays an offer rather than a
+    /// requirement: everything here works with the built-in model, and the
+    /// download only buys searching by description.
+    @ViewBuilder
+    private var upgradeOffer: some View {
+        switch semantic.backend {
+        case .builtIn where semantic.isCLIPSupported:
+            VStack(spacing: 4) {
+                Button("Use CLIP Instead") { semantic.use(.clip) }
+                    .buttonStyle(.link)
+                Text("Downloads 606 MB once. Adds searching by description, and sharper groups.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+        case .clip:
+            VStack(spacing: 4) {
+                Button("Use the Built-in Model Instead") { semantic.use(.builtIn) }
+                    .buttonStyle(.link)
+                Text("Nothing to download, but no searching by description.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+        default:
+            // The built-in model still works here; only CLIP is out of reach,
+            // so this explains the absence rather than blocking the view.
+            Text(semantic.unsupportedReason)
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
         }
     }
 

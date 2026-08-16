@@ -86,6 +86,19 @@ struct SearchView: View {
     private var emptyState: some View {
         if semantic.isSearching {
             ProgressView()
+        } else if !semantic.canSearchByText {
+            // The built-in model reads images but not words, so this asks for
+            // the one thing CLIP is actually needed for rather than failing.
+            ContentUnavailableView {
+                Label("Searching by words needs CLIP", systemImage: "magnifyingglass")
+            } description: {
+                Text("The built-in model compares images to each other, which is what “Find Similar Images” uses. Describing what you want in words needs CLIP, a 606 MB download that then works offline.")
+            } actions: {
+                if semantic.isCLIPSupported {
+                    Button("Switch to CLIP") { semantic.use(.clip) }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
         } else if semantic.searchText.isEmpty {
             ContentUnavailableView(
                 "Describe what you're looking for",
