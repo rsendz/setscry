@@ -13,6 +13,7 @@ struct DatasetView: View {
     let analysis: DatasetAnalysis
 
     @Environment(AppModel.self) private var model
+    @State private var isShowingHelp = false
 
     var body: some View {
         @Bindable var model = model
@@ -26,14 +27,16 @@ struct DatasetView: View {
                     ForEach(DatasetSection.deterministicCases, id: \.self) { section in
                         Label(section.title, systemImage: section.systemImage)
                             .badge(section.badge(for: analysis) ?? 0)
+                            .help(section.summary)
                     }
                 }
 
-                // Separated because everything below needs a downloaded model
-                // and produces suggestions rather than facts.
+                // Separated because everything below is the model's opinion
+                // rather than a fact about the files.
                 Section("With a model") {
                     ForEach(DatasetSection.modelCases, id: \.self) { section in
                         Label(section.title, systemImage: section.systemImage)
+                            .help(section.summary)
                     }
                 }
             }
@@ -45,6 +48,10 @@ struct DatasetView: View {
                 .toolbar { toolbarContent }
         }
         .safeAreaInset(edge: .top) { noticeBanner }
+        .sheet(isPresented: $isShowingHelp) { HelpView() }
+        .onReceive(NotificationCenter.default.publisher(for: .showSetscryHelp)) { _ in
+            isShowingHelp = true
+        }
     }
 
     @ViewBuilder
@@ -80,6 +87,9 @@ struct DatasetView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup {
+            Button("What can Setscry do?", systemImage: "questionmark.circle") {
+                isShowingHelp = true
+            }
             Button("Rescan", systemImage: "arrow.clockwise") { model.rescan() }
             Button("Close Dataset", systemImage: "xmark.circle") { model.close() }
         }

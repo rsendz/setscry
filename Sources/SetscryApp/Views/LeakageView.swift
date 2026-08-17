@@ -18,12 +18,12 @@ struct LeakageView: View {
             ContentUnavailableView(
                 "No leakage found",
                 systemImage: "checkmark.circle",
-                description: Text("No image appears in more than one split.")
+                description: Text("No image turned up in more than one of the train, validation and test folders.")
             )
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    Text("The same image on both sides of a split inflates reported accuracy. Identical files are certain; the rest are close enough to be worth checking.")
+                    Text("These images sit in more than one of the train, validation and test folders. A model then gets tested on pictures it already studied, which makes it look better than it is. Identical files are certain; the rest are close enough to be worth checking.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

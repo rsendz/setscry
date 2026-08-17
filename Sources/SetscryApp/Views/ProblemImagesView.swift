@@ -16,9 +16,9 @@ struct ProblemImagesView: View {
     var body: some View {
         if records.isEmpty {
             ContentUnavailableView(
-                "Every file decoded",
+                "Every image opened",
                 systemImage: "checkmark.circle",
-                description: Text("No empty, truncated or corrupt images in this folder.")
+                description: Text("Nothing in this folder is empty, cut short or corrupt.")
             )
         } else {
             List(records) { record in
