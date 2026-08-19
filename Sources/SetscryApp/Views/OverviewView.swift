@@ -11,6 +11,8 @@ import SetscryCore
 struct OverviewView: View {
     let analysis: DatasetAnalysis
 
+    @Environment(AppModel.self) private var model
+
     private var health: HealthReport { analysis.health }
 
     private let columns = [GridItem(.adaptive(minimum: 200), spacing: 12)]
@@ -50,10 +52,10 @@ struct OverviewView: View {
 
                     StatTile(
                         value: health.problemCount.formatted(),
-                        title: "Unreadable",
+                        title: "Won't open",
                         detail: health.problemCount == 0
-                            ? "Every file decoded successfully."
-                            : "These files did not decode and would fail during training.",
+                            ? "Every file opened successfully."
+                            : "These files are empty, cut short or not really images.",
                         systemImage: "exclamationmark.triangle",
                         isConcerning: health.problemCount > 0,
                         destination: .problems
@@ -93,6 +95,8 @@ struct OverviewView: View {
                 Text("Duplicate and leakage findings other than exact matches are suggestions based on image similarity. Confirm them before deleting anything.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Button("Export Report…", systemImage: "square.and.arrow.up") { model.exportReport() }
             }
             .padding(20)
         }

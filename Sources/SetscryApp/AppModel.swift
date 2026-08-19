@@ -202,6 +202,34 @@ final class AppModel {
         return findings
     }
 
+    // MARK: - Exporting
+
+    /// Writes the findings somewhere they can be read without Setscry.
+    ///
+    /// The format follows the extension the user types, so choosing between a
+    /// spreadsheet and a page to send someone is one decision made in the save
+    /// panel rather than two menu items.
+    func exportReport() {
+        guard let analysis else { return }
+
+        let panel = NSSavePanel()
+        panel.title = "Export Report"
+        panel.nameFieldStringValue = "\(analysis.root.lastPathComponent)-report.html"
+        panel.allowedContentTypes = [.html, .commaSeparatedText]
+        panel.message = "Choose .html for a page you can open and share, or .csv to work through the findings in a spreadsheet."
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let isCSV = url.pathExtension.lowercased() == "csv"
+        let contents = isCSV ? ReportExporter.csv(for: analysis) : ReportExporter.html(for: analysis)
+
+        do {
+            try contents.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            notice = "Couldn't write the report: \(error.localizedDescription)"
+        }
+    }
+
     /// Moves files to the Trash — recoverable by design, since every suggestion
     /// Setscry makes is a suggestion.
     func moveToTrash(_ records: [ImageRecord]) async {

@@ -42,6 +42,12 @@ struct AppCommands: Commands {
         }
 
         CommandGroup(after: .saveItem) {
+            Button("Export Report…") { model.exportReport() }
+                .keyboardShortcut("e")
+                .disabled(model.analysis == nil)
+
+            Divider()
+
             Button("Rescan Folder") { model.rescan() }
                 .keyboardShortcut("r")
                 .disabled(model.analysis == nil)
