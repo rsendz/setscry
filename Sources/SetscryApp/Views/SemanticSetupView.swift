@@ -91,7 +91,7 @@ struct SemanticSetupView: View {
         case .builtIn where semantic.isCLIPSupported:
             VStack(spacing: 4) {
                 Button("Use CLIP Instead") { semantic.use(.clip) }
-                    .buttonStyle(.link)
+                    .buttonStyle(.borderless)
                 Text("Downloads 606 MB once. Adds searching by description, and sharper groups.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -100,7 +100,7 @@ struct SemanticSetupView: View {
         case .clip:
             VStack(spacing: 4) {
                 Button("Use the Built-in Model Instead") { semantic.use(.builtIn) }
-                    .buttonStyle(.link)
+                    .buttonStyle(.borderless)
                 Text("Nothing to download, but no searching by description.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)

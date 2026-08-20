@@ -31,7 +31,7 @@ struct DropZoneView: View {
                     .controlSize(.large)
 
                 Button("What can Setscry do?") { isShowingHelp = true }
-                    .buttonStyle(.link)
+                    .buttonStyle(.borderless)
             }
         }
         .padding(48)
