@@ -1,0 +1,57 @@
+name: Release
+
+# Push tags one at a time. GitHub creates no workflow run for any of them when
+# several arrive in a single push, so the release quietly never happens. A tag
+# that missed its run is recovered with
+#
+#     gh workflow run release.yml --ref v1.2
+#
+# rather than by moving or recreating the tag.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  app:
+    name: Build the app bundle
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Shares a key with CI, so a release right after a green build reuses the
+      # MLX objects instead of compiling them again.
+      - uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: ${{ runner.os }}-spm-
+
+      - name: Build Setscry.app
+        run: ./Scripts/make-app.sh "${GITHUB_REF_NAME#v}"
+
+      # The zip, never the .app directory: uploading a bundle re-zips it in a way
+      # that drops the executable bit and flattens the metallib symlink, and the
+      # result will not launch.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Setscry-${{ github.ref_name }}
+          path: dist/Setscry-*.zip
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Setscry-*.zip
+          body: |
+            Unzip and drag **Setscry.app** to Applications.
+
+            This is an unnotarized personal build, so the first launch needs one
+            extra step: open it, then allow it under System Settings ▸ Privacy &
+            Security, or run
+
+                xattr -dr com.apple.quarantine /Applications/Setscry.app
+
+            Requires macOS 15 or later on Apple silicon.
