@@ -40,6 +40,9 @@ enum EmbeddingFile {
     struct ReadResult {
         var header: Header
         var entries: [String: Embedding]
+        /// Hashes in the order the file holds them, so the caller can tell which
+        /// entries were written most recently. A `Dictionary` alone cannot.
+        var hashesInFileOrder: [String]
         /// Records read including duplicates, so the caller can decide to compact.
         var recordsRead: Int
         /// Set when the file ended mid-record and was truncated back to alignment.
@@ -107,12 +110,15 @@ enum EmbeddingFile {
         let torn = body % stride != 0
 
         var entries: [String: Embedding] = [:]
+        var order: [String] = []
         entries.reserveCapacity(whole)
+        order.reserveCapacity(whole)
 
         for index in 0..<whole {
             let offset = headerSize + index * stride
             guard let hash = readHash(data, at: offset) else { continue }
             entries[hash] = readEmbedding(data, at: offset + hashSize, dimension: header.dimension)
+            order.append(hash)
         }
 
         // A record half-written when the app quit would misalign every append
@@ -121,7 +127,13 @@ enum EmbeddingFile {
             try? truncate(url, to: headerSize + whole * stride)
         }
 
-        return ReadResult(header: header, entries: entries, recordsRead: whole, repairedTornRecord: torn)
+        return ReadResult(
+            header: header,
+            entries: entries,
+            hashesInFileOrder: order,
+            recordsRead: whole,
+            repairedTornRecord: torn
+        )
     }
 
     /// Rewrites the file with one record per hash. Used to compact a file that

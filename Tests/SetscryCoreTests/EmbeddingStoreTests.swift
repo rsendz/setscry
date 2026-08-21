@@ -214,6 +214,32 @@ struct EmbeddingStoreTests {
         #expect(hits[unreadable.url] == nil)
     }
 
+    @Test("Outgrowing the cap drops the oldest entries, not arbitrary ones")
+    func trimmingKeepsTheNewest() async throws {
+        let folder = try ImageFixture.Folder()
+        let keys = ["a", "b", "c", "d", "e", "f"].map(hash)
+
+        let store = EmbeddingStore(
+            providerIdentifier: "test.provider", directory: folder.url, maximumEntries: 3
+        )
+        for (index, key) in keys.enumerated() {
+            await store.append([(contentHash: key, embedding: makeEmbedding(seed: Float(index + 1)))])
+        }
+
+        let reopened = EmbeddingStore(
+            providerIdentifier: "test.provider", directory: folder.url, maximumEntries: 3
+        )
+        #expect(await reopened.load() == 3)
+
+        // The last three written survive; the first three are gone.
+        for key in keys.suffix(3) {
+            #expect(await reopened.embedding(forContentHash: key) != nil)
+        }
+        for key in keys.prefix(3) {
+            #expect(await reopened.embedding(forContentHash: key) == nil)
+        }
+    }
+
     @Test("Clearing the cache removes the file")
     func clearingRemovesTheFile() async throws {
         let folder = try ImageFixture.Folder()

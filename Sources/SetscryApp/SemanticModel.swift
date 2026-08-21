@@ -90,14 +90,18 @@ final class SemanticModel {
     /// Vectors from different models are never comparable, so each backend gets
     /// its own cache and switching between them is not a reason to throw either
     /// away.
-    private var store: EmbeddingStore {
+    private var store: EmbeddingStore { store(for: backend) }
+
+    private func store(for backend: Backend) -> EmbeddingStore {
         if let existing = stores[backend] { return existing }
-        let store = EmbeddingStore(providerIdentifier: provider.identifier)
+        let store = EmbeddingStore(providerIdentifier: provider(for: backend).identifier)
         stores[backend] = store
         return store
     }
 
-    private var provider: any EmbeddingProvider {
+    private var provider: any EmbeddingProvider { provider(for: backend) }
+
+    private func provider(for backend: Backend) -> any EmbeddingProvider {
         switch backend {
         case .builtIn: featurePrint
         case .clip: clip
@@ -272,13 +276,21 @@ final class SemanticModel {
         return results
     }
 
+    /// Throws away every model's cached vectors, not just the one in use — the
+    /// menu item offers to reclaim the space, and the space is the sum of both.
     func clearCachedEmbeddings() async {
-        await store.removeAll()
+        for backend in Backend.allCases {
+            await store(for: backend).removeAll()
+        }
         await refreshCacheSize()
     }
 
     private func refreshCacheSize() async {
-        cachedEmbeddingBytes = await store.fileSize
+        var total: Int64 = 0
+        for backend in Backend.allCases {
+            total += await store(for: backend).fileSize
+        }
+        cachedEmbeddingBytes = total
     }
 
     /// Ranks the folder by similarity to one of its own images.

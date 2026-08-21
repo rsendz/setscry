@@ -24,6 +24,10 @@ public actor EmbeddingStore {
     private let url: URL
     private let maximumEntries: Int
     private var entries: [String: Embedding] = [:]
+    /// Hashes in the order they were written, so trimming can drop the oldest.
+    /// A dictionary has no order, and taking its `suffix` would drop whichever
+    /// entries happened to hash into the tail.
+    private var order: [String] = []
     private var isLoaded = false
     /// Set once the first append has written a header, so appends know the
     /// dimension the file was created with.
@@ -68,11 +72,13 @@ public actor EmbeddingStore {
 
         guard let result = EmbeddingFile.read(at: url, providerIdentifier: providerIdentifier, dimension: nil) else {
             entries = [:]
+            order = []
             try? FileManager.default.removeItem(at: url)
             return 0
         }
 
         entries = result.entries
+        order = result.hashesInFileOrder
         // Taken from the header rather than from a vector, so a file that holds
         // a header and no records still appends at the right record size.
         dimension = result.header.dimension
@@ -127,6 +133,7 @@ public actor EmbeddingStore {
             ) else { continue }
             payload.append(record)
             entries[entry.contentHash] = entry.embedding
+            order.append(entry.contentHash)
         }
         guard !payload.isEmpty else { return }
 
@@ -147,6 +154,7 @@ public actor EmbeddingStore {
 
     public func removeAll() {
         entries = [:]
+        order = []
         dimension = nil
         try? FileManager.default.removeItem(at: url)
     }
@@ -156,20 +164,30 @@ public actor EmbeddingStore {
     /// Rewrites the file with one record per hash, dropping the oldest entries
     /// if the cache has outgrown its cap.
     ///
-    /// Trimming uses insertion order as a stand-in for recency, which is only an
-    /// approximation — an exact LRU would need access times this format does not
-    /// store, and the cap exists to bound disk use rather than to be precise.
+    /// Write order stands in for recency, which is an approximation: an image
+    /// read once and looked at every day since counts as old. An exact LRU would
+    /// need access times the format does not store, and the cap is here to bound
+    /// disk use rather than to be clever — a dropped entry costs one re-embed.
     private func compact() {
         guard let dimension else { return }
 
-        var kept = Array(entries)
-        if kept.count > maximumEntries {
-            kept = Array(kept.suffix(maximumEntries))
-            entries = Dictionary(uniqueKeysWithValues: kept)
+        // Newest first, keeping only the first appearance of each hash, then
+        // flipped back so the file stays in oldest-to-newest order.
+        var seen = Set<String>()
+        var kept: [(contentHash: String, embedding: Embedding)] = []
+        for hash in order.reversed() where !seen.contains(hash) {
+            guard let embedding = entries[hash] else { continue }
+            seen.insert(hash)
+            kept.append((contentHash: hash, embedding: embedding))
+            if kept.count == maximumEntries { break }
         }
+        kept.reverse()
+
+        entries = Dictionary(kept.map { ($0.contentHash, $0.embedding) }, uniquingKeysWith: { _, last in last })
+        order = kept.map(\.contentHash)
 
         try? EmbeddingFile.write(
-            kept.map { (contentHash: $0.key, embedding: $0.value) },
+            kept,
             header: EmbeddingFile.Header(dimension: dimension, providerIdentifier: providerIdentifier),
             to: url
         )
