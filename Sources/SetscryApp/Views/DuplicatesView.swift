@@ -47,8 +47,10 @@ struct DuplicatesView: View {
                 .padding(20)
             }
             .safeAreaInset(edge: .bottom) { actionBar }
+            // Pluralized by hand: a dialog title is handed to AppKit as plain
+            // text, and inflection markup would be printed rather than applied.
             .confirmationDialog(
-                "Move ^[\(redundant.count) file](inflect: true) to the Trash?",
+                "Move \(redundant.count) file\(redundant.count == 1 ? "" : "s") to the Trash?",
                 isPresented: $isConfirmingTrash,
                 titleVisibility: .visible
             ) {
@@ -57,14 +59,14 @@ struct DuplicatesView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("One image from each of the \(groups.count) groups is kept — the one marked Keep. Everything else goes to the Trash, so you can put it back.")
+                Text("One image is kept from each of ^[\(groups.count) group](inflect: true) — the one marked Keep. Everything else goes to the Trash, so you can put it back.")
             }
         }
     }
 
     private var actionBar: some View {
         HStack {
-            Text("^[\(groups.count) group](inflect: true) · \(reclaimable.formatted(.byteCount(style: .file))) recoverable")
+            Text("^[\(groups.count) group](inflect: true) · ") + Text(reclaimable.formatted(.byteCount(style: .file)) + " recoverable")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()

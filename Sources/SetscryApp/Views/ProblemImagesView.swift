@@ -58,8 +58,10 @@ struct ProblemImagesView: View {
                 .padding(.vertical, 4)
             }
             .safeAreaInset(edge: .bottom) { actionBar }
+            // Pluralized by hand: a dialog title is handed to AppKit as plain
+            // text, and inflection markup would be printed rather than applied.
             .confirmationDialog(
-                "Move ^[\(targets.count) file](inflect: true) to the Trash?",
+                "Move \(targets.count) file\(targets.count == 1 ? "" : "s") to the Trash?",
                 isPresented: $isConfirmingTrash,
                 titleVisibility: .visible
             ) {
@@ -77,11 +79,17 @@ struct ProblemImagesView: View {
 
     private var actionBar: some View {
         HStack {
-            Text(selection.isEmpty
-                 ? "^[\(records.count) file](inflect: true) that won't open. Select some, or trash them all."
-                 : "^[\(selection.count) file](inflect: true) selected")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            // Two separate Texts, not a ternary: a conditional produces a String,
+            // and the inflection markup would then be printed rather than applied.
+            Group {
+                if selection.isEmpty {
+                    Text("^[\(records.count) file](inflect: true) that won't open. Select some, or trash them all.")
+                } else {
+                    Text("^[\(selection.count) file](inflect: true) selected")
+                }
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
 
             Spacer()
 
