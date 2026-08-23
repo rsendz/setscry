@@ -7,20 +7,19 @@
 
 import Foundation
 
-/// Where a CLIP checkpoint comes from and what it costs to fetch.
+/// Which CLIP checkpoint the app runs, and where to get it if it is missing.
 ///
-/// The download size is stated up front rather than discovered halfway through
-/// a scan: a 600 MB download is something the user should agree to knowingly.
+/// A packaged build ships the weights inside it, so the download path only runs
+/// for someone building from source.
 public struct CLIPModelSource: Sendable {
     /// Directory name under Setscry's model cache, and the identifier stored
     /// alongside any vectors this model produces.
     public let identifier: String
     public let displayName: String
     public let repository: String
-    public let approximateDownloadBytes: Int64
 
-    /// Files fetched from the repository. All are small except the weights.
-    static let requiredFiles = [
+    /// Everything the model needs to run. All are small except the weights.
+    public static let bundledFiles = [
         "config.json",
         "preprocessor_config.json",
         "vocab.json",
@@ -31,23 +30,20 @@ public struct CLIPModelSource: Sendable {
     public init(
         identifier: String,
         displayName: String,
-        repository: String,
-        approximateDownloadBytes: Int64
+        repository: String
     ) {
         self.identifier = identifier
         self.displayName = displayName
         self.repository = repository
-        self.approximateDownloadBytes = approximateDownloadBytes
     }
 
-    /// LAION's ViT-B/32, trained on LAION-2B. A good default: small enough to
-    /// download once without ceremony, and stronger at retrieval than the
-    /// original OpenAI weights of the same shape.
+    /// LAION's ViT-B/32, trained on LAION-2B. Small enough to ship inside the
+    /// app, and stronger at retrieval than the original OpenAI weights of the
+    /// same shape.
     public static let vitBase32 = CLIPModelSource(
         identifier: "clip-vit-b32-laion2b",
         displayName: "CLIP ViT-B/32 (LAION-2B)",
-        repository: "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
-        approximateDownloadBytes: 606_000_000
+        repository: "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
     )
 
     func downloadURL(for file: String) -> URL {

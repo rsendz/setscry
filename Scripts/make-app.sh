@@ -5,7 +5,7 @@
 #
 # The signature is ad-hoc: no Apple Developer account, no notarization. That is
 # enough for the app to run, but not enough for Gatekeeper to let it open the
-# first time without a nudge — see the install notes in the README.
+# first time without a nudge. See the install notes in the README.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -26,10 +26,18 @@ swift build -c release
 # produces them. Idempotent, so re-running this script is cheap.
 ./Scripts/fetch-mlx-metallib.sh
 
+# The weights go inside the app, so an installed copy never downloads anything.
+# Fetched and converted once, then reused on later builds.
+MODEL="Build/CLIPModel"
+if [ ! -f "$MODEL/model.safetensors" ]; then
+    ./.build/release/prepare-model "$MODEL"
+fi
+
 BIN=".build/release/Setscry"
 LIB=".build/release/mlx.metallib"
 [ -f "$BIN" ] || { echo "No release binary at $BIN" >&2; exit 1; }
 [ -f "$LIB" ] || { echo "No mlx.metallib at $LIB" >&2; exit 1; }
+[ -f "$MODEL/model.safetensors" ] || { echo "No weights at $MODEL" >&2; exit 1; }
 
 echo "Assembling ${APP}…"
 rm -rf "$APP"
@@ -42,13 +50,15 @@ strip -rSTx "$APP/Contents/MacOS/Setscry"
 
 cp Assets/Setscry.icns "$APP/Contents/Resources/Setscry.icns"
 
-# The kernels live in Resources, where a bundle's data belongs — but MLX finds
+# The kernels live in Resources, where a bundle's data belongs, but MLX finds
 # them by asking dladdr where its own code is, which inside a bundle is
 # Contents/MacOS. The symlink satisfies both without a second 125 MB copy.
 # Without it the app passes MLXRuntime's availability check and then aborts from
 # C++ the moment a model-backed view is opened.
 cp "$LIB" "$APP/Contents/Resources/mlx.metallib"
 ln -s ../Resources/mlx.metallib "$APP/Contents/MacOS/mlx.metallib"
+
+cp -R "$MODEL" "$APP/Contents/Resources/CLIPModel"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

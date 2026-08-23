@@ -31,6 +31,16 @@ let package = Package(
             dependencies: ["SetscryCore", "SetscryML", "SetscryMLX"],
             path: "Sources/SetscryApp"
         ),
+        // A build tool, not part of the app: it prepares the weights that
+        // Scripts/make-app.sh puts inside the bundle.
+        .executableTarget(
+            name: "prepare-model",
+            dependencies: [
+                "SetscryMLX",
+                .product(name: "MLX", package: "mlx-swift"),
+            ],
+            path: "Sources/PrepareModel"
+        ),
         .testTarget(
             name: "SetscryCoreTests",
             dependencies: ["SetscryCore", "SetscryML", "SetscryMLX", "Setscry"]

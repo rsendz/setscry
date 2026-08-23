@@ -29,6 +29,13 @@ jobs:
           key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved', 'Package.swift') }}
           restore-keys: ${{ runner.os }}-spm-
 
+      # The weights go inside the app, so they are fetched and converted once and
+      # then reused. Keyed on the checkpoint the source file names.
+      - uses: actions/cache@v4
+        with:
+          path: Build/CLIPModel
+          key: ${{ runner.os }}-clip-${{ hashFiles('Sources/SetscryMLX/CLIPModelSource.swift') }}
+
       - name: Build Setscry.app
         run: ./Scripts/make-app.sh "${GITHUB_REF_NAME#v}"
 
