@@ -24,7 +24,7 @@ struct SearchView: View {
             SemanticSetupView(
                 analysis: analysis,
                 title: "Search by describing an image",
-                explanation: "Setscry can read every image with a local model, then find them by description instead of by filename."
+                explanation: "Find images by describing them, instead of by filename."
             )
         } else {
             @Bindable var semantic = semantic
@@ -68,7 +68,7 @@ struct SearchView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Images similar to \(subject.fileName)")
                     .font(.headline)
-                Text("Ranked by how close they are to this one.")
+                Text("Closest first.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -86,24 +86,11 @@ struct SearchView: View {
     private var emptyState: some View {
         if semantic.isSearching {
             ProgressView()
-        } else if !semantic.canSearchByText {
-            // The built-in model reads images but not words, so this asks for
-            // the one thing CLIP is actually needed for rather than failing.
-            ContentUnavailableView {
-                Label("Searching by words needs CLIP", systemImage: "magnifyingglass")
-            } description: {
-                Text("The built-in model compares images to each other, which is what “Find Similar Images” uses. Describing what you want in words needs CLIP, a 606 MB download that then works offline.")
-            } actions: {
-                if semantic.isCLIPSupported {
-                    Button("Switch to CLIP") { semantic.use(.clip) }
-                        .buttonStyle(.borderedProminent)
-                }
-            }
         } else if semantic.searchText.isEmpty {
             ContentUnavailableView(
                 "Describe what you're looking for",
                 systemImage: "magnifyingglass",
-                description: Text("Try “a close-up of a face”, “something orange”, or “a screenshot”. Results are ranked by similarity, so the best matches come first.")
+                description: Text("Try “a close-up of a face”, “something orange”, or “a screenshot”. Best matches come first.")
             )
         } else {
             ContentUnavailableView.search(text: semantic.searchText)

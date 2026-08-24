@@ -73,7 +73,7 @@ final class CLIPTextModel: Module {
     /// An additive causal mask whose masked value is finite in the given type.
     ///
     /// `MultiHeadAttention.createAdditiveCausalMask` multiplies by `-1e9`,
-    /// which is already infinity in half precision — so the *unmasked* entries
+    /// which is already infinity in half precision, so the *unmasked* entries
     /// become `0 * infinity`, which is NaN, and every text embedding comes back
     /// NaN. The largest safe magnitude for float16 is what CLIP's own
     /// implementations use here.
@@ -159,7 +159,7 @@ final class CLIPVisionModel: Module {
 }
 
 /// Both towers plus the projections that put images and text in one shared
-/// space — the property that makes searching images by description possible.
+/// space, the property that makes searching images by description possible.
 final class CLIPModel: Module {
     @ModuleInfo(key: "text_model") var textModel: CLIPTextModel
     @ModuleInfo(key: "vision_model") var visionModel: CLIPVisionModel

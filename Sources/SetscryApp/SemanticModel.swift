@@ -11,33 +11,15 @@ import SetscryCore
 import SetscryML
 import SetscryMLX
 
-/// Owns everything that depends on a model: getting one ready, embedding a
-/// folder, and the searches, clusters and label checks that follow.
+/// Owns everything that depends on the model: loading it, reading a folder with
+/// it, and the searches, clusters and label checks that follow.
 ///
 /// Kept separate from `AppModel` so the deterministic half of the app has no
-/// idea the ML layer exists — the folder scan, duplicate findings and health
+/// idea the ML layer exists. The folder scan, duplicate findings and health
 /// report all work whether or not this is ever switched on.
 @MainActor
 @Observable
 final class SemanticModel {
-    /// Which model reads the images.
-    ///
-    /// The built-in one is the default because it costs nothing to start: it
-    /// ships with macOS, so the model-backed views work the first time they are
-    /// opened. CLIP is worth 606 MB only for what it adds — searching by
-    /// description — so it is offered rather than assumed.
-    enum Backend: String, CaseIterable {
-        case builtIn
-        case clip
-
-        var title: String {
-            switch self {
-            case .builtIn: "Built into macOS"
-            case .clip: "CLIP"
-            }
-        }
-    }
-
     enum Phase {
         case idle
         /// Started, but the first progress report hasn't arrived yet.
@@ -67,79 +49,24 @@ final class SemanticModel {
     /// clearing it frees.
     private(set) var cachedEmbeddingBytes: Int64 = 0
 
-    /// The chosen backend, remembered between launches.
-    private(set) var backend: Backend
-
-    private let featurePrint = FeaturePrintEmbedder()
     private let clip = CLIPEmbedder()
-    private var stores: [Backend: EmbeddingStore] = [:]
+    private let store: EmbeddingStore
     private var work: Task<Void, Never>?
     private var searchTask: Task<Void, Never>?
 
-    private static let backendKey = "semanticBackend"
-
     init() {
-        let saved = UserDefaults.standard.string(forKey: Self.backendKey)
-        let chosen = saved.flatMap(Backend.init(rawValue:)) ?? .builtIn
-        // A build without Metal kernels cannot run CLIP at all, so a remembered
-        // choice of it falls back rather than failing on first use.
-        backend = (chosen == .clip && !MLXRuntime.isAvailable) ? .builtIn : chosen
+        store = EmbeddingStore(providerIdentifier: clip.identifier)
         Task { await refreshCacheSize() }
     }
 
-    /// Vectors from different models are never comparable, so each backend gets
-    /// its own cache and switching between them is not a reason to throw either
-    /// away.
-    private var store: EmbeddingStore { store(for: backend) }
-
-    private func store(for backend: Backend) -> EmbeddingStore {
-        if let existing = stores[backend] { return existing }
-        let store = EmbeddingStore(providerIdentifier: provider(for: backend).identifier)
-        stores[backend] = store
-        return store
-    }
-
-    private var provider: any EmbeddingProvider { provider(for: backend) }
-
-    private func provider(for backend: Backend) -> any EmbeddingProvider {
-        switch backend {
-        case .builtIn: featurePrint
-        case .clip: clip
-        }
-    }
-
-    /// Text search needs a model with a text encoder, which only CLIP has.
-    private var textProvider: (any TextEmbeddingProvider)? { provider as? TextEmbeddingProvider }
-
-    func use(_ backend: Backend) {
-        guard backend != self.backend else { return }
-        cancel()
-        self.backend = backend
-        UserDefaults.standard.set(backend.rawValue, forKey: Self.backendKey)
-        index = nil
-        clusters = []
-        labelSuggestions = []
-        clearSearch()
-        Task { await refreshCacheSize() }
-    }
-
-    /// What the current backend is and what using it costs, shown before it runs.
-    var modelDescription: String { provider.details }
-    var modelName: String { provider.displayName }
-    var canSearchByText: Bool { textProvider != nil }
-    /// True when the backend needs nothing fetched before it can run.
-    var isModelReady: Bool { backend == .builtIn || clip.isReady }
-    /// Where the work runs. Only CLIP goes through MLX, so saying so for the
-    /// built-in model would be describing the wrong thing.
-    var deviceDescription: String {
-        switch backend {
-        case .builtIn: "Runs on this Mac, using whatever accelerator Vision picks."
-        case .clip: MLXRuntime.deviceDescription
-        }
-    }
-    /// False when this build has no compiled Metal kernels. Only CLIP needs
-    /// them; the built-in backend runs regardless.
-    nonisolated var isCLIPSupported: Bool { MLXRuntime.isAvailable }
+    var modelDescription: String { clip.details }
+    var modelName: String { clip.displayName }
+    /// True when the weights are already here, which a packaged build always is.
+    var isModelReady: Bool { clip.isReady }
+    nonisolated var deviceDescription: String { MLXRuntime.deviceDescription }
+    /// False when this build has no compiled Metal kernels, without which MLX
+    /// cannot start at all.
+    nonisolated var isSupported: Bool { MLXRuntime.isAvailable }
     nonisolated var unsupportedReason: String { MLXRuntime.unavailableReason }
 
     var isBusy: Bool {
@@ -157,14 +84,9 @@ final class SemanticModel {
 
     /// Gets the chosen backend ready. Only CLIP has anything to fetch, and only
     /// it reports download progress.
-    private func prepareProvider() async throws {
-        switch backend {
-        case .builtIn:
-            try await featurePrint.prepare()
-        case .clip:
-            try await clip.prepare { [weak self] progress in
-                Task { @MainActor in self?.report(download: progress) }
-            }
+    private func prepareModel() async throws {
+        try await clip.prepare { [weak self] progress in
+            Task { @MainActor in self?.report(download: progress) }
         }
     }
 
@@ -186,13 +108,13 @@ final class SemanticModel {
             guard let self else { return }
 
             do {
-                try await self.prepareProvider()
+                try await self.prepareModel()
 
                 let embeddings = try await self.embed(records)
                 try Task.checkCancellation()
 
                 let index = EmbeddingIndex(
-                    providerIdentifier: self.provider.identifier,
+                    providerIdentifier: self.clip.identifier,
                     embeddings: embeddings
                 )
                 let clusters = EmbeddingClusterer.cluster(embeddings)
@@ -254,11 +176,12 @@ final class SemanticModel {
             try Task.checkCancellation()
 
             let batch = Array(pending[start..<min(start + batchSize, pending.count)])
-            let embeddings = try await provider.embed(imagesAt: batch.map(\.url))
+            // The whole batch goes through the model in one pass, which is most
+            // of the speed of a transformer.
+            let embeddings = try await clip.embed(imagesAt: batch.map(\.url))
 
             var fresh: [(contentHash: String, embedding: Embedding)] = []
-            for record in batch {
-                guard let embedding = embeddings[record.url] else { continue }
+            for (record, embedding) in zip(batch, embeddings) {
                 results[record.url] = embedding
                 if let hash = record.contentHash {
                     fresh.append((contentHash: hash, embedding: embedding))
@@ -276,21 +199,13 @@ final class SemanticModel {
         return results
     }
 
-    /// Throws away every model's cached vectors, not just the one in use — the
-    /// menu item offers to reclaim the space, and the space is the sum of both.
     func clearCachedEmbeddings() async {
-        for backend in Backend.allCases {
-            await store(for: backend).removeAll()
-        }
+        await store.removeAll()
         await refreshCacheSize()
     }
 
     private func refreshCacheSize() async {
-        var total: Int64 = 0
-        for backend in Backend.allCases {
-            total += await store(for: backend).fileSize
-        }
-        cachedEmbeddingBytes = total
+        cachedEmbeddingBytes = await store.fileSize
     }
 
     /// Ranks the folder by similarity to one of its own images.
@@ -330,9 +245,7 @@ final class SemanticModel {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         searchTask?.cancel()
-        // Only a backend with a text encoder can answer a typed query; with the
-        // built-in one the view offers CLIP instead of failing silently.
-        guard !query.isEmpty, let index, let textProvider else {
+        guard !query.isEmpty, let index else {
             searchResults = []
             searchSubject = nil
             isSearching = false
@@ -345,7 +258,7 @@ final class SemanticModel {
             guard let self else { return }
 
             do {
-                let vector = try await textProvider.embed(searchQuery: query)
+                let vector = try await self.clip.embed(searchQuery: query)
                 try Task.checkCancellation()
                 self.searchResults = index.nearest(to: vector, limit: 60)
             } catch is CancellationError {

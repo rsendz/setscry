@@ -11,7 +11,7 @@ import Foundation
 ///
 /// Written out rather than pulled from a tokenizer library because it is the
 /// only tokenizer Setscry needs, and a wrong tokenization degrades every search
-/// result silently rather than failing loudly — worth being able to read the
+/// result silently rather than failing loudly, so it is worth being able to read the
 /// whole thing.
 struct CLIPTokenizer {
     enum Failure: LocalizedError {
@@ -131,7 +131,7 @@ struct CLIPTokenizer {
     // MARK: - Byte-pair encoding
 
     /// Maps every byte to a printable character, the way GPT-2 and CLIP do, so
-    /// any input — including emoji and accented text — is representable in the
+    /// any input, including emoji and accented text, is representable in the
     /// vocabulary.
     private static func makeByteEncoder() -> [UInt8: Character] {
         var printable: [UInt8] = []

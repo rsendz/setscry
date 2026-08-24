@@ -7,11 +7,13 @@
 
 import Foundation
 
-/// Downloads and caches model files under Application Support.
+/// Finds the model files, fetching them only if they are not already here.
 ///
-/// Downloads land in a temporary file and are moved into place only once
-/// complete, so an interrupted download can never leave a half-written
-/// checkpoint that fails mysteriously on the next launch.
+/// A packaged build carries the weights in `Contents/Resources/CLIPModel`, so
+/// nothing is ever downloaded. Building from source has no such copy, so the
+/// files are fetched once and cached under Application Support. Downloads land
+/// in a temporary file and are moved into place only once complete, so an
+/// interrupted one cannot leave a half-written checkpoint behind.
 public actor CLIPModelStore {
     public struct Progress: Sendable {
         public let file: String
@@ -45,7 +47,15 @@ public actor CLIPModelStore {
         self.session = URLSession(configuration: .default)
     }
 
-    public nonisolated var directory: URL {
+    /// The copy shipped inside the app, if this build has one.
+    public nonisolated var bundledDirectory: URL? {
+        guard let resources = Bundle.main.resourceURL else { return nil }
+        let directory = resources.appendingPathComponent("CLIPModel", isDirectory: true)
+        return Self.isComplete(directory) ? directory : nil
+    }
+
+    /// Where a source build keeps the files it had to fetch.
+    public nonisolated var cacheDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base
             .appendingPathComponent("Setscry", isDirectory: true)
@@ -53,21 +63,31 @@ public actor CLIPModelStore {
             .appendingPathComponent(source.identifier, isDirectory: true)
     }
 
-    /// Whether every required file is already on disk.
-    public nonisolated var isDownloaded: Bool {
-        CLIPModelSource.requiredFiles.allSatisfy {
+    public nonisolated var directory: URL { bundledDirectory ?? cacheDirectory }
+
+    /// Whether the model can be loaded without fetching anything.
+    public nonisolated var isReady: Bool {
+        bundledDirectory != nil || Self.isComplete(cacheDirectory)
+    }
+
+    private static func isComplete(_ directory: URL) -> Bool {
+        CLIPModelSource.bundledFiles.allSatisfy {
             FileManager.default.fileExists(atPath: directory.appendingPathComponent($0).path)
         }
     }
 
-    /// Fetches whatever is missing. Files already present are left alone, so
-    /// calling this when the model is complete costs nothing.
+    /// Returns the model directory, fetching whatever is missing first. Returns
+    /// immediately when the app carries the weights, which a packaged build
+    /// always does.
     public func download(
         onProgress: @escaping @Sendable (Progress) -> Void = { _ in }
     ) async throws -> URL {
+        if let bundledDirectory { return bundledDirectory }
+
+        let directory = cacheDirectory
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        let files = CLIPModelSource.requiredFiles
+        let files = CLIPModelSource.bundledFiles
         for (index, file) in files.enumerated() {
             let destination = directory.appendingPathComponent(file)
             guard !FileManager.default.fileExists(atPath: destination.path) else { continue }
@@ -119,10 +139,10 @@ public actor CLIPModelStore {
         try FileManager.default.moveItem(at: temporary, to: destination)
     }
 
-    /// Deletes the cached model. Offered so a 600 MB download is not a
-    /// one-way decision.
+    /// Deletes files a source build had to fetch. The bundled copy belongs to
+    /// the app and is left alone.
     public func removeFromDisk() throws {
-        try FileManager.default.removeItem(at: directory)
+        try FileManager.default.removeItem(at: cacheDirectory)
     }
 }
 

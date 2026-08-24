@@ -16,21 +16,21 @@ import SetscryML
 ///
 /// Conforms to ``TextEmbeddingProvider``, so it plugs in wherever the Vision
 /// feature print does but additionally puts text and images in one shared
-/// space — which is what makes searching images by description possible.
+/// space, which is what makes searching images by description possible.
 ///
 /// The model is an actor because MLX evaluation is not safe to drive from
 /// several tasks at once, and because loading half a gigabyte of weights should
 /// happen exactly once.
 public actor CLIPEmbedder: TextEmbeddingProvider {
     public enum Failure: LocalizedError {
-        case modelNotDownloaded
+        case modelNotLoaded
         case decodeFailed(URL)
         case mlxUnavailable
 
         public var errorDescription: String? {
             switch self {
-            case .modelNotDownloaded:
-                "The CLIP model hasn't been downloaded yet."
+            case .modelNotLoaded:
+                "The model is not loaded yet."
             case .decodeFailed(let url):
                 "Couldn't read \(url.lastPathComponent) as an image."
             case .mlxUnavailable:
@@ -55,13 +55,10 @@ public actor CLIPEmbedder: TextEmbeddingProvider {
         self.store = CLIPModelStore(source: source)
         self.identifier = source.identifier
         self.displayName = source.displayName
-
-        let size = Measurement(value: Double(source.approximateDownloadBytes), unit: UnitInformationStorage.bytes)
-            .formatted(.byteCount(style: .file))
-        self.details = "Runs on this Mac. Downloads \(size) the first time it is used, then works offline."
+        self.details = "Runs on this Mac. Nothing is uploaded, and nothing is downloaded."
     }
 
-    public nonisolated var isReady: Bool { store.isDownloaded }
+    public nonisolated var isReady: Bool { store.isReady }
 
     public nonisolated var modelDirectory: URL { store.directory }
 
@@ -120,7 +117,7 @@ public actor CLIPEmbedder: TextEmbeddingProvider {
     /// relative to one 224×224 image, so a whole folder runs several times
     /// faster in batches than one at a time.
     public func embed(imagesAt urls: [URL]) async throws -> [SetscryML.Embedding] {
-        guard let model, let processor else { throw Failure.modelNotDownloaded }
+        guard let model, let processor else { throw Failure.modelNotLoaded }
         guard !urls.isEmpty else { return [] }
 
         let images = try await decode(urls, with: processor)
@@ -147,7 +144,7 @@ public actor CLIPEmbedder: TextEmbeddingProvider {
     }
 
     public func embed(text: String) async throws -> SetscryML.Embedding {
-        guard let model, let tokenizer else { throw Failure.modelNotDownloaded }
+        guard let model, let tokenizer else { throw Failure.modelNotLoaded }
 
         let tokens = tokenizer.encode(text)
         let features = model.textFeatures(MLXArray(tokens, [1, tokens.count]))
@@ -217,7 +214,7 @@ public actor CLIPEmbedder: TextEmbeddingProvider {
     /// Inference runs in half precision.
     ///
     /// The published checkpoints are float32, which doubles both the memory and
-    /// the bandwidth every layer needs for no benefit here — half precision is
+    /// the bandwidth every layer needs for no benefit here. Half precision is
     /// what CLIP is normally served in, and retrieval ranks images by relative
     /// similarity, which is far coarser than the precision difference.
     static let computeType: DType = .float16

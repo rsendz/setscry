@@ -64,7 +64,7 @@ struct CLIPImageProcessor {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
-    /// Produces an `[N, H, W, C]` batch — the channels-last layout MLX
+    /// Produces an `[N, H, W, C]` batch, the channels-last layout MLX
     /// convolutions expect.
     func pixels(for images: [CGImage]) -> MLXArray {
         var values = [Float]()
@@ -97,7 +97,7 @@ struct CLIPImageProcessor {
             // No flip: Core Graphics writes the first row of a bitmap context's
             // buffer as the top scanline of what it draws, so reading the buffer
             // in order already gives the picture the right way up. Adding the
-            // usual flip transform here would feed every image in upside down —
+            // usual flip transform here would feed every image in upside down,
             // which the vision tower is not invariant to.
             context.interpolationQuality = .high
 

@@ -13,7 +13,7 @@ import MLX
 /// MLX needs its Metal kernels compiled into a `.metallib`. Xcode builds
 /// produce one; a plain `swift build` does not, because SwiftPM never invokes
 /// the Metal compiler. Without it MLX aborts the process from C++ the first
-/// time a stream is created — before any Swift error can be thrown, and even
+/// time a stream is created, before any Swift error can be thrown, and even
 /// when the CPU device is selected. So the check has to happen before MLX is
 /// touched at all, which is what this type is for.
 public enum MLXRuntime {
@@ -44,7 +44,7 @@ public enum MLXRuntime {
     }
 
     /// MLX already defaults to the GPU when its kernels are present, so there
-    /// is nothing to select — the only thing that matters is not calling into
+    /// is nothing to select. The only thing that matters is not calling into
     /// MLX at all when they are missing.
     public static func configureDefaultDevice() {}
 
@@ -57,7 +57,7 @@ public enum MLXRuntime {
         }
 
         // MLX resolves "colocated" against the binary that contains its own
-        // code, which is not always `Bundle.main` — under the test runner they
+        // code, which is not always `Bundle.main`. Under the test runner they
         // differ. Checking every plausible root keeps this check from
         // disagreeing with MLX and reporting the feature unavailable when it
         // would in fact have loaded.

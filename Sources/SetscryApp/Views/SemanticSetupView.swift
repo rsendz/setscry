@@ -9,8 +9,8 @@ import SwiftUI
 import SetscryCore
 import SetscryMLX
 
-/// The gate in front of everything that needs the model: states the download
-/// size and where the work runs before anything is fetched.
+/// The gate in front of the sections that need the model: what they do, and one
+/// button to start.
 struct SemanticSetupView: View {
     let analysis: DatasetAnalysis
     let title: String
@@ -19,7 +19,15 @@ struct SemanticSetupView: View {
     @Environment(SemanticModel.self) private var semantic
 
     var body: some View {
-        phaseContent
+        if !semantic.isSupported {
+            ContentUnavailableView {
+                Label("Not available in this build", systemImage: "cpu")
+            } description: {
+                Text(semantic.unsupportedReason)
+            }
+        } else {
+            phaseContent
+        }
     }
 
     @ViewBuilder
@@ -29,91 +37,47 @@ struct SemanticSetupView: View {
             ContentUnavailableView {
                 Label(title, systemImage: "sparkle.magnifyingglass")
             } description: {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     Text(explanation)
-                    Text(semantic.modelDescription)
-                        .font(.callout)
                     Text(semantic.deviceDescription)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 .multilineTextAlignment(.center)
             } actions: {
-                VStack(spacing: 12) {
-                    Button("Read the Images") { semantic.build(for: analysis) }
-                        .buttonStyle(.borderedProminent)
-
-                    upgradeOffer
-                }
+                Button("Read the images") { semantic.build(for: analysis) }
+                    .buttonStyle(.borderedProminent)
             }
 
         case .preparing:
-            progressView(
-                title: "Getting the model ready",
-                detail: semantic.isModelReady ? "Loading the model" : "Starting download",
-                fraction: nil
-            )
+            progressView(title: "Loading the model", detail: "", fraction: nil)
 
+        // Only a source build reaches this: a packaged app carries the weights.
         case .downloading(let progress):
             progressView(
-                title: "Downloading \(semantic.modelName)",
+                title: "Fetching the model",
                 detail: byteDetail(for: progress),
                 fraction: progress.fractionCompleted
             )
 
         case .embedding(let completed, let total):
             progressView(
-                title: "Reading images with the model",
+                title: "Reading images",
                 detail: embeddingDetail(completed: completed, total: total),
                 fraction: total > 0 ? Double(completed) / Double(total) : nil
             )
 
         case .failed(let message):
             ContentUnavailableView {
-                Label("Couldn't set that up", systemImage: "exclamationmark.triangle")
+                Label("That didn't work", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(message)
             } actions: {
-                Button("Try Again") { semantic.build(for: analysis) }
+                Button("Try again") { semantic.build(for: analysis) }
             }
 
         case .ready:
             EmptyView()
-        }
-    }
-
-    /// The one place CLIP is offered. It stays an offer rather than a
-    /// requirement: everything here works with the built-in model, and the
-    /// download only buys searching by description.
-    @ViewBuilder
-    private var upgradeOffer: some View {
-        switch semantic.backend {
-        case .builtIn where semantic.isCLIPSupported:
-            VStack(spacing: 4) {
-                Button("Use CLIP Instead") { semantic.use(.clip) }
-                    .buttonStyle(.borderless)
-                Text("Downloads 606 MB once. Adds searching by description, and sharper groups.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-        case .clip:
-            VStack(spacing: 4) {
-                Button("Use the Built-in Model Instead") { semantic.use(.builtIn) }
-                    .buttonStyle(.borderless)
-                Text("Nothing to download, but no searching by description.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-        default:
-            // The built-in model still works here; only CLIP is out of reach,
-            // so this explains the absence rather than blocking the view.
-            Text(semantic.unsupportedReason)
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
         }
     }
 
@@ -125,14 +89,12 @@ struct SemanticSetupView: View {
                 ProgressView(title)
             }
 
-            Text(detail)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-
-            Text(semantic.deviceDescription)
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
+            if !detail.isEmpty {
+                Text(detail)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
 
             Button("Cancel") { semantic.cancel() }
                 .padding(.top, 4)
@@ -145,7 +107,7 @@ struct SemanticSetupView: View {
     private func embeddingDetail(completed: Int, total: Int) -> String {
         let progress = "\(completed.formatted()) of \(total.formatted())"
         guard semantic.reusedCount > 0 else { return progress }
-        return "\(progress) · \(semantic.reusedCount.formatted()) already read earlier"
+        return "\(progress), \(semantic.reusedCount.formatted()) reused from earlier"
     }
 
     private func byteDetail(for progress: CLIPModelStore.Progress) -> String {
