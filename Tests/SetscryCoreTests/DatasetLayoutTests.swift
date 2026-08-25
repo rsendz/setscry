@@ -62,3 +62,36 @@ struct DatasetLayoutTests {
         #expect(attributes.relativePath == "loose.jpg")
     }
 }
+
+@Suite("Choosing what to keep")
+struct KeeperTests {
+    @Test("A name that announces itself as a copy is recognized")
+    func copyNames() {
+        for name in ["photo copy.jpg", "photo copy 2.jpg", "Copy of photo.jpg", "photo (1).png", "photo (12).png"] {
+            #expect(DuplicateFinder.looksLikeACopy(name), "\(name) should read as a copy")
+        }
+    }
+
+    @Test("Ordinary names, including numbered dataset files, are not copies")
+    func originalNames() {
+        // The numbered ones matter: a dataset is full of files named this way
+        // and none of them are copies of each other.
+        for name in ["photo.jpg", "img-2.jpg", "cats 3.png", "0001.png", "copycat.jpg", "(1).png"] {
+            #expect(!DuplicateFinder.looksLikeACopy(name), "\(name) should not read as a copy")
+        }
+    }
+
+    @Test("The original is kept over the copy, whatever order they arrive in")
+    func keeperPrefersTheOriginal() async throws {
+        let folder = try ImageFixture.Folder()
+        let original = try ImageFixture.writePNG(seed: 4, to: folder.url.appendingPathComponent("photo.png"))
+        try FileManager.default.copyItem(at: original, to: folder.url.appendingPathComponent("photo copy.png"))
+
+        let records = try await DatasetScanner().scan(root: folder.url) { _ in }
+        let analysis = DatasetAnalysis.make(root: folder.url, records: records)
+
+        let group = try #require(analysis.exactDuplicates.first)
+        #expect(group.keeper?.fileName == "photo.png")
+        #expect(group.redundant.map(\.fileName) == ["photo copy.png"])
+    }
+}

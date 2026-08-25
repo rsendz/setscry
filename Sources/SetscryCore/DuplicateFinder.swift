@@ -73,13 +73,42 @@ public enum DuplicateFinder {
 
     // MARK: - Ordering
 
-    /// For identical files the shallowest, alphabetically first path is the least
-    /// surprising thing to keep.
+    /// For identical files, the one whose name does not announce itself as a
+    /// copy, then the shallowest, then the alphabetically first.
+    ///
+    /// The name is the strongest signal available: the bytes are the same, so
+    /// nothing else distinguishes them, and "photo.jpg" is almost always the one
+    /// someone means to keep over "photo copy 2.jpg".
     private static func preferredKeeperFirst(_ a: ImageRecord, _ b: ImageRecord) -> Bool {
+        let copyA = looksLikeACopy(a.fileName)
+        let copyB = looksLikeACopy(b.fileName)
+        if copyA != copyB { return !copyA }
+
         let depthA = a.relativePath.split(separator: "/").count
         let depthB = b.relativePath.split(separator: "/").count
         if depthA != depthB { return depthA < depthB }
+
         return a.relativePath.localizedStandardCompare(b.relativePath) == .orderedAscending
+    }
+
+    /// Recognizes the names Finder, browsers and sync tools give a second copy.
+    static func looksLikeACopy(_ fileName: String) -> Bool {
+        let stem = (fileName as NSString).deletingPathExtension.lowercased()
+
+        // "photo copy", "photo copy 2", "copy of photo"
+        if stem.hasSuffix(" copy") || stem.hasPrefix("copy of ") { return true }
+        if let range = stem.range(of: " copy "), stem[range.upperBound...].allSatisfy(\.isNumber) {
+            return true
+        }
+        // "photo (1)", the browser and download convention
+        if stem.hasSuffix(")"), let open = stem.lastIndex(of: "("), open > stem.startIndex {
+            let digits = stem[stem.index(after: open)..<stem.index(before: stem.endIndex)]
+            if !digits.isEmpty, digits.allSatisfy(\.isNumber) { return true }
+        }
+
+        // Deliberately not "photo-2" or "photo 2": datasets are full of files
+        // numbered that way that are nothing to do with copies.
+        return false
     }
 
     /// For near-duplicates the highest-resolution copy is the safest to keep.

@@ -15,14 +15,14 @@ struct DuplicatesView: View {
     @Environment(AppModel.self) private var model
     @State private var isConfirmingTrash = false
 
-    /// Every copy except the one kept in each group — the whole point of the
-    /// view, expressed as one action instead of one click per group.
+    /// Every copy except the one kept in each group, so a cleaning pass is one
+    /// confirmation rather than one per group.
     private var redundant: [ImageRecord] {
-        groups.flatMap(\.redundant)
+        groups.flatMap { model.redundant(in: $0) }
     }
 
     private var reclaimable: Int64 {
-        groups.reduce(0) { $0 + $1.reclaimableBytes }
+        redundant.reduce(0) { $0 + $1.byteSize }
     }
 
     var body: some View {
@@ -30,7 +30,7 @@ struct DuplicatesView: View {
             ContentUnavailableView(
                 "Nothing to review",
                 systemImage: "checkmark.circle",
-                description: Text("Setscry didn't find any duplicates of this kind.")
+                description: Text("No duplicates of this kind.")
             )
         } else {
             ScrollView {
@@ -47,36 +47,34 @@ struct DuplicatesView: View {
                 .padding(20)
             }
             .safeAreaInset(edge: .bottom) { actionBar }
-            // Pluralized by hand: a dialog title is handed to AppKit as plain
-            // text, and inflection markup would be printed rather than applied.
             .confirmationDialog(
-                "Move \(redundant.count) file\(redundant.count == 1 ? "" : "s") to the Trash?",
+                "Move \(redundant.count) file\(redundant.count == 1 ? "" : "s") to the trash?",
                 isPresented: $isConfirmingTrash,
                 titleVisibility: .visible
             ) {
-                Button("Move to Trash", role: .destructive) {
+                Button("Move to trash", role: .destructive) {
                     Task { await model.moveToTrash(redundant) }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("One image is kept from each of ^[\(groups.count) group](inflect: true) — the one marked Keep. Everything else goes to the Trash, so you can put it back.")
+                Text("One image stays in each group, the one marked Keeping. You can put the rest back from the trash.")
             }
         }
     }
 
     private var actionBar: some View {
         HStack {
-            Text("^[\(groups.count) group](inflect: true) · ") + Text(reclaimable.formatted(.byteCount(style: .file)) + " recoverable")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-
+            Text("^[\(groups.count) group](inflect: true) · ")
+                + Text(reclaimable.formatted(.byteCount(style: .file)) + " recoverable")
             Spacer()
 
-            Button("Keep One of Each, Trash the Rest") { isConfirmingTrash = true }
+            Button("Keep one of each, trash the rest") { isConfirmingTrash = true }
                 .buttonStyle(.borderedProminent)
                 .disabled(redundant.isEmpty)
         }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .monospacedDigit()
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(.bar)

@@ -19,7 +19,12 @@ public enum ReportExporter {
     /// A finding is a file plus the reason it was flagged, so a file caught by
     /// two checks appears twice. That is what makes the file filterable by
     /// reason without having to parse a combined column.
-    public static func csv(for analysis: DatasetAnalysis) -> String {
+    /// `keepers` names the file the user chose to keep in a group, where they
+    /// chose one, so the report says the same thing the window does.
+    public static func csv(
+        for analysis: DatasetAnalysis,
+        keepers: [DuplicateGroup.ID: URL] = [:]
+    ) -> String {
         var rows = ["finding,file,group,detail"]
 
         for record in analysis.problemImages {
@@ -28,14 +33,14 @@ public enum ReportExporter {
 
         for (index, group) in analysis.exactDuplicates.enumerated() {
             for record in group.records {
-                let role = record == group.keeper ? "keep" : "redundant copy"
+                let role = record == keeper(of: group, keepers) ? "keeping" : "redundant copy"
                 rows.append(row("Exact duplicate", record.relativePath, "exact-\(index + 1)", role))
             }
         }
 
         for (index, group) in analysis.nearDuplicates.enumerated() {
             for record in group.records {
-                let role = record == group.keeper ? "keep" : "similar copy"
+                let role = record == keeper(of: group, keepers) ? "keeping" : "similar copy"
                 let detail = group.spread.map { "\(role), differs by \($0) of 64 bits" } ?? role
                 rows.append(row("Near duplicate", record.relativePath, "near-\(index + 1)", detail))
             }
@@ -56,7 +61,10 @@ public enum ReportExporter {
 
     /// A single self-contained page: no stylesheet, no script, no images, so it
     /// survives being emailed around.
-    public static func html(for analysis: DatasetAnalysis) -> String {
+    public static func html(
+        for analysis: DatasetAnalysis,
+        keepers: [DuplicateGroup.ID: URL] = [:]
+    ) -> String {
         let health = analysis.health
         let folder = escape(analysis.root.lastPathComponent)
         let scanned = analysis.scannedAt.formatted(date: .abbreviated, time: .shortened)
@@ -79,13 +87,15 @@ public enum ReportExporter {
         body += duplicateSection(
             "Exact duplicates",
             "Byte-identical files. \(health.reclaimableBytes.formatted(.byteCount(style: .file))) recoverable by keeping one of each.",
-            groups: analysis.exactDuplicates
+            groups: analysis.exactDuplicates,
+            keepers: keepers
         )
 
         body += duplicateSection(
             "Near duplicates",
             "The same picture resized, re-saved or lightly edited. Suggestions, not certainties.",
-            groups: analysis.nearDuplicates
+            groups: analysis.nearDuplicates,
+            keepers: keepers
         )
 
         body += section(
@@ -120,7 +130,7 @@ public enum ReportExporter {
         fields.map(field).joined(separator: ",")
     }
 
-    /// Quotes only when it has to, and doubles embedded quotes — the whole of
+    /// Quotes only when it has to, and doubles embedded quotes: the whole of
     /// RFC 4180 that matters for paths, which routinely contain commas.
     private static func field(_ value: String) -> String {
         guard value.contains(where: { ",\"\n\r".contains($0) }) else { return value }
@@ -145,7 +155,21 @@ public enum ReportExporter {
         return "<div class=\"tiles\">" + cells.joined() + "</div>"
     }
 
-    private static func duplicateSection(_ title: String, _ blurb: String, groups: [DuplicateGroup]) -> String {
+    /// The file to keep in a group: the user's pick if they made one, otherwise
+    /// the one Setscry suggests.
+    private static func keeper(of group: DuplicateGroup, _ keepers: [DuplicateGroup.ID: URL]) -> ImageRecord? {
+        guard let chosen = keepers[group.id],
+              let record = group.records.first(where: { $0.url == chosen })
+        else { return group.keeper }
+        return record
+    }
+
+    private static func duplicateSection(
+        _ title: String,
+        _ blurb: String,
+        groups: [DuplicateGroup],
+        keepers: [DuplicateGroup.ID: URL]
+    ) -> String {
         section(
             title,
             blurb,
@@ -154,9 +178,9 @@ public enum ReportExporter {
                     "\(index + 1)",
                     group.records.map { record in
                         let path = escape(record.relativePath)
-                        return record == group.keeper ? "<strong>\(path)</strong> — keep" : path
+                        return record == keeper(of: group, keepers) ? "<strong>\(path)</strong> (keeping)" : path
                     }.joined(separator: "<br>"),
-                    group.reclaimableBytes.formatted(.byteCount(style: .file)),
+                    redundantBytes(of: group, keepers).formatted(.byteCount(style: .file)),
                 ]
             },
             headers: ["Group", "Files", "Recoverable"],
@@ -164,8 +188,13 @@ public enum ReportExporter {
         )
     }
 
+    private static func redundantBytes(of group: DuplicateGroup, _ keepers: [DuplicateGroup.ID: URL]) -> Int64 {
+        let kept = keeper(of: group, keepers)
+        return group.records.filter { $0 != kept }.reduce(0) { $0 + $1.byteSize }
+    }
+
     /// Pass `escapesCells: false` only for rows whose cells are already escaped
-    /// markup — the ones listing several files, which need `<br>` between them.
+    /// markup, the ones listing several files that need `<br>` between them.
     private static func section(
         _ title: String,
         _ blurb: String,
@@ -196,7 +225,7 @@ public enum ReportExporter {
         <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Setscry — \(title)</title>
+        <title>Setscry: \(title)</title>
         <style>
         :root { color-scheme: light dark; }
         body { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

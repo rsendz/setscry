@@ -57,7 +57,7 @@ final class AppModel {
     /// Convenient when iterating on the same dataset repeatedly.
     ///
     /// It has to be a flag. AppKit treats a bare positional path as a
-    /// document-open request and then never creates the app's window at all —
+    /// document-open request and then never creates the app's window at all.
     /// the process runs, windowless, with no error anywhere.
     static func folderFromLaunchArguments() -> URL? {
         let arguments = Array(CommandLine.arguments.dropFirst())
@@ -86,6 +86,9 @@ final class AppModel {
         selectedSection = .overview
         notice = nil
         inspecting = nil
+        // The choices name files in the folder being replaced, so they mean
+        // nothing once a different one is open.
+        keeperChoices = [:]
         recentFolders = recents.recording(folder)
         phase = .scanning(ScanProgress(phase: .discovering))
 
@@ -150,6 +153,7 @@ final class AppModel {
         scanTask?.cancel()
         scanTask = nil
         notice = nil
+        keeperChoices = [:]
         phase = .idle
     }
 
@@ -190,7 +194,7 @@ final class AppModel {
             findings.append(problem.summary)
         }
         if analysis.exactDuplicates.contains(where: { $0.records.contains(record) }) {
-            findings.append("Has byte-identical copies elsewhere")
+            findings.append("Has identical copies elsewhere")
         }
         if analysis.nearDuplicates.contains(where: { $0.records.contains(record) }) {
             findings.append("Looks like a copy of another image")
@@ -200,6 +204,29 @@ final class AppModel {
         }
 
         return findings
+    }
+
+    // MARK: - Choosing what to keep
+
+    /// The file the user picked to keep in a duplicate group, where they picked
+    /// one. Setscry guesses a keeper, but it is a guess about which copy matters
+    /// to someone, so it has to be overridable.
+    private(set) var keeperChoices: [DuplicateGroup.ID: URL] = [:]
+
+    func keeper(of group: DuplicateGroup) -> ImageRecord? {
+        guard let chosen = keeperChoices[group.id],
+              let record = group.records.first(where: { $0.url == chosen })
+        else { return group.keeper }
+        return record
+    }
+
+    func redundant(in group: DuplicateGroup) -> [ImageRecord] {
+        guard let keeper = keeper(of: group) else { return [] }
+        return group.records.filter { $0 != keeper }
+    }
+
+    func chooseKeeper(_ record: ImageRecord, in group: DuplicateGroup) {
+        keeperChoices[group.id] = record.url
     }
 
     // MARK: - Exporting
@@ -213,15 +240,17 @@ final class AppModel {
         guard let analysis else { return }
 
         let panel = NSSavePanel()
-        panel.title = "Export Report"
+        panel.title = "Export report"
         panel.nameFieldStringValue = "\(analysis.root.lastPathComponent)-report.html"
         panel.allowedContentTypes = [.html, .commaSeparatedText]
-        panel.message = "Choose .html for a page you can open and share, or .csv to work through the findings in a spreadsheet."
+        panel.message = "Choose .html for a page to open and share, or .csv for a spreadsheet."
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         let isCSV = url.pathExtension.lowercased() == "csv"
-        let contents = isCSV ? ReportExporter.csv(for: analysis) : ReportExporter.html(for: analysis)
+        let contents = isCSV
+            ? ReportExporter.csv(for: analysis, keepers: keeperChoices)
+            : ReportExporter.html(for: analysis, keepers: keeperChoices)
 
         do {
             try contents.write(to: url, atomically: true, encoding: .utf8)
@@ -230,7 +259,7 @@ final class AppModel {
         }
     }
 
-    /// Moves files to the Trash — recoverable by design, since every suggestion
+    /// Moves files to the trash, recoverable by design, since every suggestion
     /// Setscry makes is a suggestion.
     func moveToTrash(_ records: [ImageRecord]) async {
         guard let analysis else { return }
@@ -256,6 +285,6 @@ final class AppModel {
 
         notice = failed.isEmpty
             ? nil
-            : "Couldn't move \(failed.count) file(s) to the Trash: \(failed.prefix(3).joined(separator: ", "))"
+            : "Couldn't move \(failed.count) file(s) to the trash: \(failed.prefix(3).joined(separator: ", "))"
     }
 }
