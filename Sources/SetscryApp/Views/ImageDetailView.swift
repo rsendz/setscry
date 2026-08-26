@@ -25,14 +25,22 @@ struct ImageDetailView: View {
             preview
             Divider()
             details
+            Divider()
+            // Outside the scroll view on purpose. These were previously the last
+            // thing inside it, which put them off the bottom of the sheet with
+            // nothing to suggest there was more to scroll to.
+            actions
         }
-        .frame(minWidth: 560, idealWidth: 680, minHeight: 460, idealHeight: 620)
+        .frame(minWidth: 620, idealWidth: 720, minHeight: 620, idealHeight: 780)
     }
 
+    /// A fixed slice of the height rather than as much as it can take. Left
+    /// greedy, the image squeezes the metadata below it down to a couple of
+    /// rows, which is what made the buttons hard to find.
     private var preview: some View {
-        ThumbnailView(record: record, side: 360)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(20)
+        ThumbnailView(record: record, side: 300)
+            .frame(maxWidth: .infinity)
+            .frame(height: 320)
             .background(.black.opacity(0.25))
     }
 
@@ -80,25 +88,32 @@ struct ImageDetailView: View {
                     }
                 }
                 .font(.callout)
-
-                HStack {
-                    Button("Reveal in Finder", systemImage: "folder") { model.revealInFinder(record) }
-                    Button("Quick Look", systemImage: "eye") { model.quickLook(record) }
-                    if semantic.isReady {
-                        Button("Find Similar", systemImage: "square.on.square.dashed") {
-                            semantic.findSimilar(to: record)
-                            model.selectedSection = .search
-                            dismiss()
-                        }
-                    }
-                    Spacer()
-                    Button("Done") { dismiss() }
-                        .keyboardShortcut(.defaultAction)
-                }
-                .padding(.top, 4)
             }
             .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var actions: some View {
+        HStack {
+            Button("Reveal in Finder", systemImage: "folder") { model.revealInFinder(record) }
+            Button("Quick Look", systemImage: "eye") { model.quickLook(record) }
+            if semantic.isReady {
+                Button("Find similar", systemImage: "square.on.square.dashed") {
+                    semantic.findSimilar(to: record)
+                    model.selectedSection = .search
+                    dismiss()
+                }
+            }
+
+            Spacer()
+
+            Button("Done") { dismiss() }
+                .keyboardShortcut(.defaultAction)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(.bar)
     }
 
     @ViewBuilder

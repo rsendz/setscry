@@ -15,8 +15,8 @@ import SetscryCore
 /// keeping them in one place is what makes that true.
 struct ImageActions: ViewModifier {
     let record: ImageRecord
-    /// Duplicate and leakage views already show their own Trash control, so
-    /// they suppress the one in the menu rather than offering it twice.
+    /// Views with their own trash control suppress the one in the menu rather
+    /// than offering it twice.
     var includesTrash = true
 
     @Environment(AppModel.self) private var model
@@ -32,18 +32,24 @@ struct ImageActions: ViewModifier {
             .buttonStyle(.plain)
             .accessibilityLabel("\(record.fileName), \(record.pixelSize?.displayString ?? "unknown size")")
             .accessibilityHint("Shows this image full size")
+            // Dragging carries the file itself, so an image can go straight to
+            // Finder or another app. Hold Command while dropping to move it
+            // rather than copy it, the same as anywhere else in macOS.
+            .draggable(record.url) {
+                ThumbnailView(record: record, side: 96)
+            }
             .contextMenu {
-                Button("Get Info", systemImage: "info.circle") { model.inspect(record) }
+                Button("Get info", systemImage: "info.circle") { model.inspect(record) }
                 Button("Quick Look", systemImage: "eye") { model.quickLook(record) }
 
                 Divider()
 
                 Button("Reveal in Finder", systemImage: "folder") { model.revealInFinder(record) }
-                Button("Copy Path", systemImage: "doc.on.clipboard") { model.copyPath(record) }
+                Button("Copy path", systemImage: "doc.on.clipboard") { model.copyPath(record) }
 
                 if semantic.isReady {
                     Divider()
-                    Button("Find Similar Images", systemImage: "square.on.square.dashed") {
+                    Button("Find similar images", systemImage: "square.on.square.dashed") {
                         semantic.findSimilar(to: record)
                         model.selectedSection = .search
                     }
@@ -51,7 +57,7 @@ struct ImageActions: ViewModifier {
 
                 if includesTrash {
                     Divider()
-                    Button("Move to Trash", systemImage: "trash", role: .destructive) {
+                    Button("Move to trash", systemImage: "trash", role: .destructive) {
                         Task { await model.moveToTrash([record]) }
                     }
                 }

@@ -92,14 +92,30 @@ struct OverviewView: View {
                     breakdown("Splits", values: health.splits)
                 }
 
-                Text("Duplicate and leakage findings other than exact matches are suggestions based on image similarity. Confirm them before deleting anything.")
+                Text("Anything other than exact matches is a suggestion based on how similar two images look. Check before deleting.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
-                Button("Export Report…", systemImage: "square.and.arrow.up") { model.exportReport() }
             }
             .padding(20)
         }
+        .safeAreaInset(edge: .bottom) { actionBar }
+    }
+
+    /// Pinned to the bottom, the same place every other section keeps its
+    /// action, so it is in reach without scrolling to the end.
+    private var actionBar: some View {
+        HStack {
+            Text("Scanned \(analysis.scannedAt.formatted(date: .abbreviated, time: .shortened))")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Button("Export report…", systemImage: "square.and.arrow.up") { model.exportReport() }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.bar)
     }
 
     @ViewBuilder
