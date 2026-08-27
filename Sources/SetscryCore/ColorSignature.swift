@@ -10,7 +10,7 @@ import Foundation
 
 /// A coarse colour fingerprint: the average colour of each cell of a 4×4 grid.
 ///
-/// The perceptual hash is deliberately colourblind — it compares brightness, so
+/// The perceptual hash is deliberately colourblind: it compares brightness, so
 /// it survives re-encoding and colour-profile shifts. That also means it cannot
 /// tell two recolourings of the same picture apart, which is a real pattern in
 /// image sets (product shots in several colourways, recoloured graphics). Pairing

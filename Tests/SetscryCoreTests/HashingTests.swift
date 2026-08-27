@@ -60,7 +60,7 @@ struct HashingTests {
 
     /// The perceptual hash compares brightness only, so a recoloured copy of the
     /// same artwork is structurally identical to it. The colour signature is what
-    /// keeps those apart — without it, every colourway of one design collapses
+    /// keeps those apart. Without it, every colourway of one design collapses
     /// into a single bogus duplicate group.
     @Test("Recolouring an image keeps its structure but changes its colour signature")
     func colorSignatureSeparatesRecolouredImages() throws {

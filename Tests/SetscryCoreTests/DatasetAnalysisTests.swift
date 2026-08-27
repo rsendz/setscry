@@ -149,7 +149,7 @@ struct DatasetAnalysisTests {
         #expect(updated.records.count == analysis.records.count - removed.count)
         #expect(updated.exactDuplicates.isEmpty)
         #expect(updated.health.redundantCopies == 0)
-        // The resized copy still straddles the splits, so leakage remains — but
+        // The resized copy still straddles the splits, so leakage remains, but
         // it is no longer a byte-identical certainty.
         #expect(updated.leakage.count == 1)
         #expect(updated.leakage[0].containsIdenticalFiles == false)

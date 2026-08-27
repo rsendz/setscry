@@ -62,7 +62,7 @@ enum ImageFixture {
     }
 
     /// Writes a striped image in the given colour. Two calls with different
-    /// colours produce the same brightness structure in different hues — the
+    /// colours produce the same brightness structure in different hues, which is the
     /// exact case a brightness-only hash cannot tell apart.
     @discardableResult
     static func writeStripedPNG(

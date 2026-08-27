@@ -12,7 +12,7 @@ import Vision
 ///
 /// This is the zero-friction backend: the model ships with macOS, so there is no
 /// download, no bundled weights and no first-run delay. It captures visual
-/// similarity well — which is what near-duplicate detection needs — but it has
+/// similarity well, which is what near-duplicate detection needs, but it has
 /// no text encoder, so searching by description needs a CLIP-style backend
 /// conforming to ``TextEmbeddingProvider``.
 public struct FeaturePrintEmbedder: EmbeddingProvider {

@@ -12,7 +12,7 @@ import Foundation
 /// The method is deliberately simple to explain: build a centre for each label
 /// from its own images, then find images that sit closer to a different label's
 /// centre than to their own. That is evidence worth a second look, not a
-/// verdict — an unusual but correctly labelled photo will show up here too, and
+/// verdict: an unusual but correctly labelled photo will show up here too, and
 /// the UI says so.
 public enum LabelSanityChecker {
     public struct Suggestion: Identifiable, Sendable {

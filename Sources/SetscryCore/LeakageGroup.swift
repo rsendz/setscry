@@ -21,7 +21,7 @@ public struct LeakageGroup: Identifiable, Hashable, Sendable {
     public let records: [ImageRecord]
     /// The splits this image appears in, in train/validation/test order.
     public let splits: [DatasetSplit]
-    /// True when at least two copies in different splits are byte-identical —
+    /// True when at least two copies in different splits are byte-identical,
     /// a certainty rather than a suggestion.
     public let containsIdenticalFiles: Bool
     /// The widest perceptual gap within the group, in bits out of 64.

@@ -16,7 +16,7 @@ import SetscryCore
 /// file, moving it to another folder, or keeping a second copy of it all hit the
 /// same entry, because the key describes the bytes rather than the path.
 ///
-/// One file per provider, so vectors from different models can never be mixed —
+/// One file per provider, so vectors from different models can never be mixed:
 /// a mismatch is a different filename, not a validation failure to handle.
 public actor EmbeddingStore {
     public let providerIdentifier: String
@@ -63,7 +63,7 @@ public actor EmbeddingStore {
     /// Reads the cache from disk, returning how many entries are now available.
     ///
     /// Never throws. A cache that cannot be read is not an error the user needs
-    /// to see — it just means the next run embeds from scratch, so a corrupt or
+    /// to see. It just means the next run embeds from scratch, so a corrupt or
     /// unreadable file is discarded silently.
     @discardableResult
     public func load() -> Int {
@@ -167,7 +167,7 @@ public actor EmbeddingStore {
     /// Write order stands in for recency, which is an approximation: an image
     /// read once and looked at every day since counts as old. An exact LRU would
     /// need access times the format does not store, and the cap is here to bound
-    /// disk use rather than to be clever — a dropped entry costs one re-embed.
+    /// disk use rather than to be clever, and a dropped entry costs one re-embed.
     private func compact() {
         guard let dimension else { return }
 

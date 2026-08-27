@@ -2,7 +2,7 @@
 #
 # Puts MLX's compiled Metal kernels where a SwiftPM build can find them.
 #
-# MLX cannot run at all — not even on the CPU — without `mlx.metallib`. Xcode
+# MLX cannot run at all, not even on the CPU, without `mlx.metallib`. Xcode
 # builds compile it from MLX's .metal sources; `swift build` never invokes the
 # Metal compiler, so a command-line build has no kernels and aborts the first
 # time it touches MLX.

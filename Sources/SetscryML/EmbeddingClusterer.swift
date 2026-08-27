@@ -12,7 +12,7 @@ import Foundation
 /// Spherical k-means: because ``Embedding`` values are unit length, cosine
 /// similarity is a dot product and a cluster centre is just the normalised mean
 /// of its members. Initialisation is k-means++ driven by a fixed seed, so the
-/// same folder always produces the same clusters — a clustering that reshuffles
+/// same folder always produces the same clusters. A clustering that reshuffles
 /// between runs is not something a user can act on.
 public enum EmbeddingClusterer {
     public struct Cluster: Identifiable, Sendable {
@@ -88,7 +88,7 @@ public enum EmbeddingClusterer {
 
         while centres.count < k {
             // Distance to the closest chosen centre, squared, as the sampling
-            // weight — the standard k-means++ spread.
+            // weight, the standard k-means++ spread.
             let weights = points.map { point -> Double in
                 let best = centres.map { similarity(point, $0) }.max() ?? 0
                 let distance = Double(1 - best)
@@ -170,7 +170,7 @@ public enum EmbeddingClusterer {
 
         // Every ordering below is a total order, and ids are assigned last.
         // Sorting only by size or score leaves ties to be broken by dictionary
-        // iteration, which varies between runs — so the same folder would come
+        // iteration, which varies between runs, so the same folder would come
         // back in a different order each time.
         var summaries: [(members: [URL], cohesion: Float)] = []
 

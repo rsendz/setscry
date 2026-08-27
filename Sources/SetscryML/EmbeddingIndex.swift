@@ -10,7 +10,7 @@ import Foundation
 /// An in-memory vector index over a dataset's embeddings.
 ///
 /// Brute-force cosine search: exact, dependency-free, and fast enough for the
-/// dataset sizes Setscry targets today. It sits behind a small API on purpose —
+/// dataset sizes Setscry targets today. It sits behind a small API on purpose:
 /// swapping in an approximate index later is a change to this one type.
 public struct EmbeddingIndex: Sendable {
     public struct Match: Identifiable, Sendable {

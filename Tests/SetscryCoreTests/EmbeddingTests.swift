@@ -73,8 +73,8 @@ struct EmbeddingTests {
         #expect(!matches.contains { $0.url == a })
     }
 
-    /// Exercises the real Vision backend end to end. Nothing is downloaded — the
-    /// model ships with macOS — so this is safe to run in a normal test pass.
+    /// Exercises the real Vision backend end to end. Nothing is downloaded,
+    /// since that model ships with macOS, so this is safe in a normal test pass.
     ///
     /// This checks the plumbing (the request runs, the raw buffer parses, the
     /// vectors are well formed), not how well the model ranks images. The

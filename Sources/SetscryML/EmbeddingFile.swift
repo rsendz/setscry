@@ -12,7 +12,7 @@ import Foundation
 /// The format is deliberately dull: a fixed-size header followed by fixed-size
 /// records, so appending is a seek to the end and a write, and reading is
 /// arithmetic rather than parsing. That is what makes the cache safe to append
-/// to after every batch — the cost of a crash is one truncated record, which
+/// to after every batch: the cost of a crash is one truncated record, which
 /// `read` detects and repairs.
 ///
 /// ```
@@ -94,8 +94,8 @@ enum EmbeddingFile {
         return Header(dimension: dimension, providerIdentifier: provider)
     }
 
-    /// Loads every record, or returns `nil` when the file cannot be used at all
-    /// — wrong magic, wrong version, or a header that disagrees with what the
+    /// Loads every record, or returns `nil` when the file cannot be used at all:
+    /// wrong magic, wrong version, or a header that disagrees with what the
     /// caller expects. A `nil` return always means "discard this file", never
     /// "something went wrong that the user should hear about".
     static func read(at url: URL, providerIdentifier: String, dimension: Int?) -> ReadResult? {

@@ -22,10 +22,10 @@ public enum ImageProblem: Hashable, Sendable {
 
     public var summary: String {
         switch self {
-        case .unreadable: "Unreadable — not recognized as an image"
-        case .truncated: "Truncated — pixel data is incomplete"
-        case .decodeFailed: "Corrupt — header parsed but decoding failed"
-        case .empty: "Empty — the file contains no data"
+        case .unreadable: "Unreadable, not recognized as an image"
+        case .truncated: "Truncated, pixel data is incomplete"
+        case .decodeFailed: "Corrupt: the header parsed but decoding failed"
+        case .empty: "Empty, the file contains no data"
         }
     }
 }

@@ -80,7 +80,7 @@ struct CLIPTests {
 
     /// The vision tower is not orientation-invariant, and a bitmap context puts
     /// row zero at the bottom. Getting this wrong feeds every image in upside
-    /// down — which degrades results without ever looking like a bug.
+    /// down, which degrades results without ever looking like a bug.
     @Test("Preprocessed pixels keep the image the right way up")
     func preprocessorPreservesOrientation() throws {
         // Building the tensor calls into MLX, which aborts the process rather
@@ -163,7 +163,7 @@ struct CLIPTests {
     /// Half precision is easy to get subtly wrong. The causal mask in
     /// particular is built by multiplying a 0/1 matrix by a large negative
     /// number; if that number overflows the type, the unmasked entries become
-    /// `0 * infinity` — NaN — and every text embedding silently turns to NaN
+    /// `0 * infinity`, which is NaN, and every text embedding silently turns to NaN
     /// while the image path keeps working.
     @Test("Text embeddings are finite, not NaN")
     func textEmbeddingsAreFinite() async throws {
