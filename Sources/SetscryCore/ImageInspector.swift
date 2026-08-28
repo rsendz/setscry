@@ -41,6 +41,12 @@ public enum ImageInspector {
             )
         }
 
+        // Checked before decoding, because the decoder cannot be asked. See
+        // `FileCompleteness`: a truncated JPEG, PNG or HEIC decodes without
+        // complaint, and a truncated GIF or TIFF fails to open at all and would
+        // otherwise be reported as "not an image" rather than as damaged.
+        let completeness = FileCompleteness.check(fileAt: url, byteSize: byteSize)
+
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               CGImageSourceGetCount(source) > 0 else {
             return Inspection(
@@ -48,14 +54,14 @@ public enum ImageInspector {
                 pixelSize: nil,
                 perceptualHash: nil,
                 colorSignature: nil,
-                problem: .unreadable
+                problem: completeness == .truncated ? .truncated : .unreadable
             )
         }
 
         let format = formatName(of: source)
         let pixelSize = headerPixelSize(of: source)
 
-        guard CGImageSourceGetStatus(source) == .statusComplete else {
+        guard completeness != .truncated else {
             return Inspection(
                 format: format,
                 pixelSize: pixelSize,

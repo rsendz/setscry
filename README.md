@@ -8,6 +8,8 @@ Drop a folder in. Setscry reads every file once, then splits the findings into f
 
 ![CI](https://github.com/luisresendez/setscry/actions/workflows/ci.yml/badge.svg)
 
+
+
 ## What it finds
 
 | View | What it means |

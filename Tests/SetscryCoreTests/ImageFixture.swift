@@ -116,6 +116,91 @@ enum ImageFixture {
         return url
     }
 
+    // MARK: - Truncation
+
+    /// Writes a noisy image in the given format.
+    ///
+    /// Noise rather than the block pattern the other fixtures use, because a
+    /// flat image compresses to almost nothing and there would be no pixel data
+    /// left to cut away.
+    @discardableResult
+    static func writeNoisyImage(
+        seed: UInt64,
+        size: Int = 320,
+        type: UTType,
+        to url: URL
+    ) throws -> URL {
+        try write(makeNoisyImage(seed: seed, size: size), as: type, to: url)
+    }
+
+    /// Cuts a file down to `fraction` of its bytes, leaving the head intact.
+    /// This is what a copy that stopped partway through leaves behind.
+    @discardableResult
+    static func truncate(_ url: URL, to fraction: Double) throws -> URL {
+        let data = try Data(contentsOf: url)
+        try data.prefix(Int(Double(data.count) * fraction)).write(to: url)
+        return url
+    }
+
+    /// Appends bytes after the file's end marker, which some writers do and
+    /// which must not be mistaken for damage.
+    @discardableResult
+    static func appendPadding(_ count: Int, to url: URL) throws -> URL {
+        let handle = try FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data(repeating: 0x00, count: count))
+        return url
+    }
+
+    /// Per-pixel noise, so the encoded file is large and incompressible.
+    private static func makeNoisyImage(seed: UInt64, size: Int) throws -> CGImage {
+        var state = seed &+ 0x9E3779B97F4A7C15
+        var pixels = [UInt8](repeating: 0, count: size * size * 4)
+
+        for index in stride(from: 0, to: pixels.count, by: 4) {
+            state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            pixels[index] = UInt8((state >> 33) & 0xFF)
+            pixels[index + 1] = UInt8((state >> 41) & 0xFF)
+            pixels[index + 2] = UInt8((state >> 49) & 0xFF)
+            pixels[index + 3] = 255
+        }
+
+        let image = pixels.withUnsafeMutableBytes { buffer in
+            CGContext(
+                data: buffer.baseAddress,
+                width: size,
+                height: size,
+                bitsPerComponent: 8,
+                bytesPerRow: size * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            )?.makeImage()
+        }
+
+        guard let image else { throw Failure.couldNotDraw }
+        return image
+    }
+
+    @discardableResult
+    private static func write(_ image: CGImage, as type: UTType, to url: URL) throws -> URL {
+        guard let destination = CGImageDestinationCreateWithURL(
+            url as CFURL,
+            type.identifier as CFString,
+            1,
+            nil
+        ) else {
+            throw Failure.couldNotWrite(url)
+        }
+
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw Failure.couldNotWrite(url)
+        }
+
+        return url
+    }
+
     // MARK: - Drawing
 
     /// An 8×8 grid of grayscale blocks driven by a SplitMix64 sequence. Block
