@@ -44,32 +44,30 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
     var title: String {
         switch self {
         case .overview: "Overview"
-        case .exactDuplicates: "Exact Duplicates"
-        case .nearDuplicates: "Near Duplicates"
-        case .problems: "Won't Open"
-        case .labels: "Folder Balance"
-        case .leakage: "Split Leakage"
+        case .exactDuplicates: "Exact duplicates"
+        case .nearDuplicates: "Near duplicates"
+        case .problems: "Won't open"
+        case .labels: "Folder balance"
+        case .leakage: "Split leakage"
         case .search: "Search"
         case .clusters: "Clusters"
-        case .labelCheck: "Label Check"
+        case .labelCheck: "Label check"
         }
     }
 
-    /// One plain sentence per section, for the sidebar tooltip and the help
-    /// sheet. Written for someone who has a folder of photos rather than a
-    /// dataset: the precise term still appears in the view itself, but nobody
-    /// should need to already know it to find their way around.
+    /// One line per section, for the sidebar tooltip and the help sheet.
+    /// Written for someone who has a folder of photos rather than a dataset.
     var summary: String {
         switch self {
-        case .overview: "The headline numbers for this folder, and a way into everything else."
-        case .exactDuplicates: "The same file saved more than once. Identical down to the byte, so extra copies are safe to remove."
-        case .nearDuplicates: "The same picture resized, re-saved or lightly edited. Worth a look before deleting."
-        case .problems: "Files that won't open: empty, cut short, or not really images."
-        case .labels: "How many images sit in each folder, so a lopsided set is obvious."
-        case .leakage: "The same picture filed under more than one of train, validation and test — which quietly inflates how good a model looks."
-        case .search: "Find images by describing them, instead of by filename."
-        case .clusters: "Groups of images that look alike, which is how accidental themes show up."
-        case .labelCheck: "Images that look more like a different folder's contents than their own."
+        case .overview: "The numbers for this folder, and a way into the rest."
+        case .exactDuplicates: "The same file saved twice. Identical down to the byte."
+        case .nearDuplicates: "The same picture resized, re-saved or lightly edited."
+        case .problems: "Files that won't open: empty, cut short, or not images."
+        case .labels: "How many images are in each subfolder."
+        case .leakage: "Images filed under more than one of train, validation and test."
+        case .search: "Find images by describing them."
+        case .clusters: "Groups of images that look alike."
+        case .labelCheck: "Images that look more like another folder's contents."
         }
     }
 

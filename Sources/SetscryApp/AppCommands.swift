@@ -19,40 +19,40 @@ struct AppCommands: Commands {
     /// choice rather than a guess at what is about to be thrown away.
     private var clearCacheTitle: String {
         let bytes = semantic.cachedEmbeddingBytes
-        guard bytes > 0 else { return "Clear Cached Image Readings" }
-        return "Clear Cached Image Readings (\(bytes.formatted(.byteCount(style: .file))))"
+        guard bytes > 0 else { return "Clear cached image readings" }
+        return "Clear cached image readings (\(bytes.formatted(.byteCount(style: .file))))"
     }
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("Open Folder…") { model.chooseFolder() }
+            Button("Open folder…") { model.chooseFolder() }
                 .keyboardShortcut("o")
 
-            Menu("Open Recent") {
+            Menu("Open recent") {
                 ForEach(model.recentFolders, id: \.self) { folder in
                     Button(folder.lastPathComponent) { model.open(folder: folder) }
                 }
 
                 if !model.recentFolders.isEmpty {
                     Divider()
-                    Button("Clear Menu") { model.clearRecentFolders() }
+                    Button("Clear menu") { model.clearRecentFolders() }
                 }
             }
             .disabled(model.recentFolders.isEmpty)
         }
 
         CommandGroup(after: .saveItem) {
-            Button("Export Report…") { model.exportReport() }
+            Button("Export report…") { model.exportReport() }
                 .keyboardShortcut("e")
                 .disabled(model.analysis == nil)
 
             Divider()
 
-            Button("Rescan Folder") { model.rescan() }
+            Button("Rescan folder") { model.rescan() }
                 .keyboardShortcut("r")
                 .disabled(model.analysis == nil)
 
-            Button("Close Dataset") { model.close() }
+            Button("Close folder") { model.close() }
                 .keyboardShortcut("w", modifiers: [.command, .shift])
                 .disabled(model.analysis == nil)
 
@@ -65,7 +65,7 @@ struct AppCommands: Commands {
         }
 
         CommandGroup(replacing: .help) {
-            Button("Setscry Help") {
+            Button("Setscry help") {
                 NotificationCenter.default.post(name: .showSetscryHelp, object: nil)
             }
             .keyboardShortcut("?", modifiers: .command)

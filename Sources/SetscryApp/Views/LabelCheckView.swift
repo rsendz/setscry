@@ -47,7 +47,7 @@ struct LabelCheckView: View {
                 } header: {
                     // Automatic grammar agreement, so a single finding does not
                     // read "1 images".
-                    Text("^[\(semantic.labelSuggestions.count) image](inflect: true) look more like another label. This is a prompt to look, not a verdict — an unusual but correctly labelled image lands here too.")
+                    Text("^[\(semantic.labelSuggestions.count) image](inflect: true) look more like another label. A prompt to look, not a verdict: an unusual but correctly labelled image lands here too.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .textCase(nil)

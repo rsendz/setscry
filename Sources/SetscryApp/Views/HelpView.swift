@@ -15,11 +15,10 @@ extension Notification.Name {
 
 /// What the app is for, in the app.
 ///
-/// Every section already explains itself once it has something to show, but a
-/// folder that is in good shape shows empty views, and someone opening Setscry
-/// for the first time has no way to tell the difference between "nothing found"
-/// and "nothing happened". This is the one place that says what it can find
-/// before it has found anything.
+/// Every section explains itself once it has something to show, but a folder in
+/// good shape shows empty views, and someone opening Setscry for the first time
+/// cannot tell "nothing found" from "nothing happened". This says what it looks
+/// for before it has found anything.
 struct HelpView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -47,7 +46,7 @@ struct HelpView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("How Setscry works")
                     .font(.title2.weight(.semibold))
-                Text("Point it at a folder of images and it tells you what's in there.")
+                Text("Point it at a folder of images and it tells you what is in there.")
                     .foregroundStyle(.secondary)
             }
 
@@ -64,9 +63,10 @@ struct HelpView: View {
             Text("Cleaning up a folder")
                 .font(.headline)
 
-            step(1, "Open a folder", "Drag one onto the window, or press ⌘O. Every image inside is read once, including images in subfolders.")
-            step(2, "Work through the findings", "Start with Exact Duplicates and Won't Open — those are facts, not guesses. Near Duplicates and anything under “With a model” are suggestions worth checking first.")
-            step(3, "Remove what you don't want", "Right-click any image to preview it or show it in Finder. Deleting moves files to the Trash, so nothing is gone until you empty it.")
+            step(1, "Open a folder", "Drag one onto the window, or press ⌘O. Every image inside is read once, subfolders included.")
+            step(2, "Work through the findings", "Exact duplicates and Won't open are facts. Near duplicates and anything under “With a model” are suggestions, so check those first.")
+            step(3, "Remove what you don't want", "In a duplicate group, pick the one to keep, then trash the rest. Deleting moves files to the trash, so nothing is gone until you empty it.")
+            step(4, "Or take them elsewhere", "Drag any image out to Finder or another app. Hold Command as you drop to move it instead of copying it.")
         }
     }
 
@@ -102,18 +102,17 @@ struct HelpView: View {
                 }
             }
 
-            Text("The last three read the images with a model. Setscry uses the one built into macOS by default, so there is nothing to download; CLIP is offered as an upgrade when you want to search by description.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.top, 2)
         }
     }
 
+    /// The note about CLIP lives here rather than under the section list. On its
+    /// own it was an orphan line with a section gap above and below it, and it
+    /// says the same thing this block does.
     private var privacy: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label("Everything stays on this Mac", systemImage: "lock")
                 .font(.headline)
-            Text("Images are read on this machine and never uploaded. The only thing Setscry ever downloads is the optional CLIP model, and only if you ask for it.")
+            Text("Images are read here and never uploaded. The last three sections use CLIP, a model that ships inside the app, so there is nothing to download either.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }

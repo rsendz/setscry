@@ -25,9 +25,9 @@ struct ProblemImagesView: View {
     var body: some View {
         if records.isEmpty {
             ContentUnavailableView(
-                "Every image opened",
+                "Everything opened",
                 systemImage: "checkmark.circle",
-                description: Text("Nothing in this folder is empty, cut short or corrupt.")
+                description: Text("Nothing here is empty, cut short or corrupt.")
             )
         } else {
             List(records, selection: $selection) { record in
@@ -61,18 +61,18 @@ struct ProblemImagesView: View {
             // Pluralized by hand: a dialog title is handed to AppKit as plain
             // text, and inflection markup would be printed rather than applied.
             .confirmationDialog(
-                "Move \(targets.count) file\(targets.count == 1 ? "" : "s") to the Trash?",
+                "Move \(targets.count) file\(targets.count == 1 ? "" : "s") to the trash?",
                 isPresented: $isConfirmingTrash,
                 titleVisibility: .visible
             ) {
-                Button("Move to Trash", role: .destructive) {
+                Button("Move to trash", role: .destructive) {
                     let doomed = targets
                     selection = []
                     Task { await model.moveToTrash(doomed) }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("None of these files will open, so nothing is lost that an image viewer could have shown. They go to the Trash, so you can put them back.")
+                Text("None of these open, so there is nothing to lose. You can put them back from the trash.")
             }
         }
     }
@@ -83,7 +83,7 @@ struct ProblemImagesView: View {
             // and the inflection markup would then be printed rather than applied.
             Group {
                 if selection.isEmpty {
-                    Text("^[\(records.count) file](inflect: true) that won't open. Select some, or trash them all.")
+                    Text("^[\(records.count) file](inflect: true) that won't open")
                 } else {
                     Text("^[\(selection.count) file](inflect: true) selected")
                 }
@@ -94,16 +94,18 @@ struct ProblemImagesView: View {
             Spacer()
 
             if !selection.isEmpty {
-                Button("Deselect All") { selection = [] }
+                Button("Deselect all") { selection = [] }
             }
 
-            Button(selection.isEmpty ? "Move All to Trash" : "Move Selected to Trash") {
+            Button(selection.isEmpty ? "Move all to trash" : "Move selected to trash") {
                 isConfirmingTrash = true
             }
             .buttonStyle(.borderedProminent)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        // More below than above, so the row does not sit against the window edge.
+        .padding(.top, 12)
+        .padding(.bottom, 18)
         .background(.bar)
     }
 }

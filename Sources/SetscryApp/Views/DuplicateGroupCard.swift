@@ -28,7 +28,10 @@ struct DuplicateGroupCard: View {
                         member(record)
                     }
                 }
-                .padding(.bottom, 4)
+                // Room for the overlay scrollbar to sit over nothing. It fades
+                // in on top of the content, and anything under it cannot be
+                // clicked until it fades out again.
+                .padding(.bottom, 18)
             }
             .scrollIndicators(.automatic)
 
@@ -132,15 +135,9 @@ struct DuplicateGroupCard: View {
                         .strokeBorder(.tint, lineWidth: isKeeper ? 2 : 0)
                 }
 
-            Text(record.relativePath)
-                .font(.caption)
-                .lineLimit(2)
-                .truncationMode(.middle)
-
-            Text(details(for: record))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
+            // Directly under the image rather than at the foot of the tile: at
+            // the foot, the horizontal scrollbar covers it while it is fading,
+            // so the button cannot be clicked just after a scroll.
             if isKeeper {
                 Text("Kept")
                     .font(.caption2)
@@ -150,6 +147,15 @@ struct DuplicateGroupCard: View {
                     .buttonStyle(.borderless)
                     .font(.caption2)
             }
+
+            Text(record.relativePath)
+                .font(.caption)
+                .lineLimit(2)
+                .truncationMode(.middle)
+
+            Text(details(for: record))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
         .frame(width: 128, alignment: .leading)
     }

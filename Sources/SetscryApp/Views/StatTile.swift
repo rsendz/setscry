@@ -18,7 +18,7 @@ struct StatTile: View {
     var systemImage: String
     var isConcerning = false
     /// When set, the tile becomes a button that jumps to the section it
-    /// describes — a number worth showing is usually a number worth acting on.
+    /// describes. A number worth showing is usually a number worth acting on.
     var destination: DatasetSection?
 
     @Environment(AppModel.self) private var model

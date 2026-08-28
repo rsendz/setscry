@@ -21,13 +21,13 @@ struct DropZoneView: View {
             VStack(spacing: 6) {
                 Text("Drop a folder of images")
                     .font(.title2.weight(.semibold))
-                Text("Setscry reads them on this Mac. Nothing is uploaded.")
+                Text("Read on this Mac. Nothing is uploaded.")
                     .foregroundStyle(.secondary)
             }
             .multilineTextAlignment(.center)
 
             VStack(spacing: 10) {
-                Button("Choose Folder…", action: onChooseFolder)
+                Button("Choose folder…", action: onChooseFolder)
                     .controlSize(.large)
 
                 Button("What can Setscry do?") { isShowingHelp = true }
@@ -60,7 +60,7 @@ struct DropZoneView: View {
 /// A row of image tiles that settle into place, with a slow light sweeping
 /// across them.
 ///
-/// Decorative only — it takes no clicks and says nothing the text below doesn't.
+/// Decorative only: it takes no clicks and says nothing the text below doesn't.
 /// It exists because the first screen is otherwise a static icon and a dashed
 /// rectangle, and this shows what the app is about to do to a pile of images.
 private struct OpeningArtwork: View {

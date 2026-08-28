@@ -22,19 +22,19 @@ struct ClustersView: View {
         if !semantic.isReady {
             SemanticSetupView(
                 analysis: analysis,
-                title: "Find groups you didn't know were there",
-                explanation: "Setscry can group images by what they look like, which is how overrepresented subjects and accidental subclasses show up."
+                title: "Group images by how they look",
+                explanation: "Groups of images that look alike, which is how overrepresented subjects show up."
             )
         } else if semantic.clusters.isEmpty {
             ContentUnavailableView(
                 "Not enough images to group",
                 systemImage: "square.grid.3x3",
-                description: Text("Clustering needs more images than this folder has.")
+                description: Text("Grouping needs more images than this folder has.")
             )
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    Text("These groups are the model's opinion about what looks alike. They carry no labels and mean nothing on their own — they are a way to notice structure you didn't expect.")
+                    Text("These groups are the model's opinion about what looks alike. They carry no labels; they are a way to notice structure you didn't expect.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

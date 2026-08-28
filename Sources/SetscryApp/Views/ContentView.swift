@@ -31,7 +31,7 @@ struct ContentView: View {
                     } description: {
                         Text("\(analysis.root.lastPathComponent) has no files Setscry can read. It looks for JPEG, PNG, HEIC, TIFF, GIF, BMP and WebP.")
                     } actions: {
-                        Button("Choose Another Folder") { model.chooseFolder() }
+                        Button("Choose another folder") { model.chooseFolder() }
                     }
                 } else {
                     DatasetView(analysis: analysis)
@@ -43,12 +43,12 @@ struct ContentView: View {
                 } description: {
                     Text(message)
                 } actions: {
-                    Button("Choose Another Folder") { model.chooseFolder() }
+                    Button("Choose another folder") { model.chooseFolder() }
                 }
             }
         }
         // Embeddings belong to one folder; opening another must not carry the
-        // previous index over. Files removed within a folder need no reset —
+        // previous index over. Files removed within a folder need no reset,
         // the views look records up by URL and skip what is gone.
         .onChange(of: model.analysis?.root) { semantic.reset() }
         .task {

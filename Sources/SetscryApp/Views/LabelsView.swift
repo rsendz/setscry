@@ -15,14 +15,14 @@ struct LabelsView: View {
     var body: some View {
         if !health.hasLabels {
             ContentUnavailableView {
-                Label("Nothing to compare here", systemImage: "tag")
+                Label("Nothing to compare", systemImage: "tag")
             } description: {
-                Text("This section counts how many images are in each subfolder — useful when the subfolders are categories, like cats and dogs. The images here aren't sorted into subfolders, so there's nothing to weigh up.")
+                Text("This counts the images in each subfolder, which is useful when the subfolders are categories. These images aren't in subfolders, so there is nothing to compare.")
             }
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("One bar per subfolder. Names come from the folders, not from the images themselves.")
+                    Text("One bar per subfolder. Names come from the folders, not the images.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
 
@@ -43,7 +43,7 @@ struct LabelsView: View {
 
                     if let imbalance = health.labelImbalance, imbalance >= 3 {
                         Label(
-                            "The biggest folder holds \(imbalance.formatted(.number.precision(.fractionLength(1))))× as many images as the smallest. If you're training on this, that lopsidedness will show up in the results.",
+                            "The biggest folder holds \(imbalance.formatted(.number.precision(.fractionLength(1))))× as many images as the smallest.",
                             systemImage: "exclamationmark.circle"
                         )
                         .font(.callout)
@@ -51,7 +51,7 @@ struct LabelsView: View {
                     }
 
                     if health.unlabeledCount > 0 {
-                        Text("\(health.unlabeledCount.formatted()) images sit loose in the folder rather than in one of the subfolders.")
+                        Text("\(health.unlabeledCount.formatted()) images sit loose rather than in a subfolder.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }

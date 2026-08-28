@@ -76,7 +76,9 @@ struct DuplicatesView: View {
         .foregroundStyle(.secondary)
         .monospacedDigit()
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        // More below than above, so the row does not sit against the window edge.
+        .padding(.top, 12)
+        .padding(.bottom, 18)
         .background(.bar)
     }
 }

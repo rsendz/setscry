@@ -23,6 +23,15 @@ struct DatasetView: View {
             // same type; relying on `Identifiable` plus a `tag` lets the two
             // disagree, and the sidebar then opens on the wrong section.
             List(selection: $model.selectedSection) {
+                // The open folder, which used to be the detail view's subtitle.
+                // It belongs over the sidebar: it names what the whole list is
+                // about, and it is not a section you can select.
+                Label(analysis.root.lastPathComponent, systemImage: "folder")
+                    .font(.headline)
+                    .padding(.vertical, 2)
+                    .help(analysis.root.path)
+                    .selectionDisabled()
+
                 Section("Findings") {
                     ForEach(DatasetSection.deterministicCases, id: \.self) { section in
                         Label(section.title, systemImage: section.systemImage)
@@ -42,9 +51,12 @@ struct DatasetView: View {
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 220)
         } detail: {
+            // Title only, no subtitle. A two-line title puts its first line
+            // above the toolbar buttons, which reads as misaligned however
+            // carefully the block as a whole is centred. The folder name lives
+            // over the sidebar instead, where it belongs anyway.
             detail
                 .navigationTitle(model.selectedSection.title)
-                .navigationSubtitle(analysis.root.lastPathComponent)
                 .toolbar { toolbarContent }
         }
         .safeAreaInset(edge: .top) { noticeBanner }
@@ -62,12 +74,12 @@ struct DatasetView: View {
         case .exactDuplicates:
             DuplicatesView(
                 groups: analysis.exactDuplicates,
-                explanation: "These files are byte-for-byte identical. Keeping one of each would free \(analysis.health.reclaimableBytes.formatted(.byteCount(style: .file)))."
+                explanation: "Byte-for-byte identical. Keeping one of each frees \(analysis.health.reclaimableBytes.formatted(.byteCount(style: .file)))."
             )
         case .nearDuplicates:
             DuplicatesView(
                 groups: analysis.nearDuplicates,
-                explanation: "These look like the same image resized, re-compressed or lightly edited. Worth a second look before removing anything."
+                explanation: "The same image resized, re-compressed or lightly edited. Worth a look before removing anything."
             )
         case .problems:
             ProblemImagesView(records: analysis.problemImages)
@@ -87,11 +99,11 @@ struct DatasetView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup {
-            Button("What can Setscry do?", systemImage: "questionmark.circle") {
+            Button("Help", systemImage: "questionmark.circle") {
                 isShowingHelp = true
             }
             Button("Rescan", systemImage: "arrow.clockwise") { model.rescan() }
-            Button("Close Dataset", systemImage: "xmark.circle") { model.close() }
+            Button("Close folder", systemImage: "xmark.circle") { model.close() }
         }
     }
 

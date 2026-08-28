@@ -34,18 +34,20 @@ struct ImageDetailView: View {
         .frame(minWidth: 620, idealWidth: 720, minHeight: 620, idealHeight: 780)
     }
 
-    /// A fixed slice of the height rather than as much as it can take. Left
-    /// greedy, the image squeezes the metadata below it down to a couple of
-    /// rows, which is what made the buttons hard to find.
+    /// Takes whatever height the metadata does not need, so a tall sheet gives
+    /// the image more room instead of opening a gap above the buttons.
     private var preview: some View {
         ThumbnailView(record: record, side: 300)
-            .frame(maxWidth: .infinity)
-            .frame(height: 320)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(minHeight: 260)
             .background(.black.opacity(0.25))
     }
 
+    /// Sized to its contents rather than scrolling. The metadata is a fixed
+    /// handful of rows and at most a few findings, so there is nothing to
+    /// scroll, and a scroll view here would claim the spare height.
     private var details: some View {
-        ScrollView {
+        Group {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(record.fileName)

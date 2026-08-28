@@ -77,8 +77,8 @@ struct OverviewView: View {
                     if let imbalance = health.labelImbalance {
                         StatTile(
                             value: imbalance.formatted(.number.precision(.fractionLength(1))) + "×",
-                            title: "Label imbalance",
-                            detail: "The largest class has \(imbalance.formatted(.number.precision(.fractionLength(1))))× the images of the smallest.",
+                            title: "Folder imbalance",
+                            detail: "The biggest subfolder holds this many times the images of the smallest.",
                             systemImage: "tag",
                             isConcerning: imbalance >= 3,
                             destination: .labels
@@ -114,7 +114,9 @@ struct OverviewView: View {
             Button("Export report…", systemImage: "square.and.arrow.up") { model.exportReport() }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        // More below than above, so the row does not sit against the window edge.
+        .padding(.top, 12)
+        .padding(.bottom, 18)
         .background(.bar)
     }
 
