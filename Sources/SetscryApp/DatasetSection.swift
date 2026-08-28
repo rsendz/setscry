@@ -41,6 +41,10 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
         allCases.filter(\.needsModel)
     }
 
+    /// Only the first nine get their own shortcut. There is no ⌘10, and
+    /// `Character("10")` traps at runtime rather than failing to compile.
+    static var shortcutCases: [DatasetSection] { Array(allCases.prefix(9)) }
+
     var title: String {
         switch self {
         case .overview: "Overview"

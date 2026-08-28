@@ -72,8 +72,9 @@ struct AppCommands: Commands {
         }
 
         CommandMenu("Go") {
-            // ⌘1…⌘9, in the order the sidebar lists them.
-            ForEach(Array(DatasetSection.allCases.enumerated()), id: \.element) { index, section in
+            // ⌘1…⌘9, in the order the sidebar lists them. Sections past the
+            // ninth are reachable from the sidebar only.
+            ForEach(Array(DatasetSection.shortcutCases.enumerated()), id: \.element) { index, section in
                 Button(section.title) { model.selectedSection = section }
                     .keyboardShortcut(
                         KeyEquivalent(Character("\(index + 1)")),
