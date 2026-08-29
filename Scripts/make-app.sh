@@ -1,7 +1,10 @@
 #!/bin/bash
 # Builds Setscry.app and a zip anyone can download and double-click.
 #
-#   ./Scripts/make-app.sh [version]
+#   ./Scripts/make-app.sh [expected version]
+#
+# The version comes from Sources/SetscryCore/SetscryVersion.swift. An argument,
+# if given, is checked against it rather than used.
 #
 # The signature is ad-hoc: no Apple Developer account, no notarization. That is
 # enough for the app to run, but not enough for Gatekeeper to let it open the
@@ -10,7 +13,19 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${1:-1.1}"
+# One source of truth: the version lives in Swift so an unbundled build can
+# report it too. Read here rather than passed in, so the plist cannot disagree
+# with what the app itself prints.
+VERSION="$(./Scripts/version.sh)"
+
+# A tag argument is a check, not an input: a release cannot be cut from a
+# working copy that was never bumped, and a manual workflow run cannot stamp a
+# branch name into CFBundleShortVersionString.
+if [ $# -gt 0 ] && [ "$1" != "$VERSION" ]; then
+    echo "Tag says $1 but Sources/SetscryCore/SetscryVersion.swift says $VERSION." >&2
+    exit 1
+fi
+
 APP="dist/Setscry.app"
 ZIP="dist/Setscry-$VERSION.zip"
 

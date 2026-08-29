@@ -20,4 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
+
+    /// macOS 14 and later logs a warning on every launch without this. Setscry
+    /// restores no window state, so opting in costs nothing.
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        true
+    }
 }

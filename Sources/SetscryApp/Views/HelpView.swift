@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SetscryCore
 
 extension Notification.Name {
     /// Posted by the Help menu item. The menu lives outside the view hierarchy,
@@ -115,6 +116,12 @@ struct HelpView: View {
             Text("Images are read here and never uploaded. The last three sections use CLIP, a model that ships inside the app, so there is nothing to download either.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+
+            // Where someone looks before reporting something.
+            Text("Setscry \(SetscryVersion.display)")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .padding(.top, 2)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -164,6 +164,23 @@ final class AppModel {
         phase = .scanning(progress)
     }
 
+    // MARK: - About
+
+    /// The standard About panel, filled in by hand.
+    ///
+    /// Unbundled there is no Info.plist for AppKit to read, so without this the
+    /// panel shows the raw executable name and no version at all.
+    func showAbout() {
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "Setscry",
+            .applicationVersion: SetscryVersion.display,
+            // One number, so suppress the build-number parenthetical rather than
+            // printing the same string twice.
+            .version: "",
+        ])
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     // MARK: - Acting on files
 
     func revealInFinder(_ record: ImageRecord) {

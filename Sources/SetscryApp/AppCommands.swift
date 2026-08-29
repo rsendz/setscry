@@ -24,6 +24,10 @@ struct AppCommands: Commands {
     }
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About Setscry") { model.showAbout() }
+        }
+
         CommandGroup(replacing: .newItem) {
             Button("Open folder…") { model.chooseFolder() }
                 .keyboardShortcut("o")
