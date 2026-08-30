@@ -41,8 +41,12 @@ jobs:
       - name: Build
         run: swift build --build-tests
 
-      # No mlx.metallib is fetched here: without compiled Metal kernels every
-      # MLX-backed test skips itself, and the CLIP tests additionally need
-      # SETSCRY_DOWNLOAD_MODEL=1 and a 600 MB download. Both are run locally.
+      # The kernels are fetched so the MLX-backed tests actually run. Without
+      # them every one of those tests skips itself and the log still reads
+      # green, which is the same as not having them. The 600 MB model download
+      # the CLIP tests need stays local: those still skip here.
+      - name: Fetch the Metal kernels
+        run: ./Scripts/fetch-mlx-metallib.sh
+
       - name: Test
         run: swift test --skip-build

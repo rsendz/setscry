@@ -12,8 +12,41 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# softprops/action-gh-release needs this. Without it the release step works only
+# while the repository default workflow permission happens to be read-write.
+permissions:
+  contents: write
+
 jobs:
+  # A tag must not publish a build whose tests never ran. Mirrors ci.yml, which
+  # does not trigger on tags.
+  test:
+    name: Build and test
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: ${{ runner.os }}-spm-
+
+      - name: Build
+        run: swift build --build-tests
+
+      # Same reason as ci.yml: without the kernels the MLX-backed tests skip
+      # themselves and gate nothing.
+      - name: Fetch the Metal kernels
+        run: ./Scripts/fetch-mlx-metallib.sh
+
+      - name: Test
+        run: swift test --skip-build
+
   app:
+    needs: test
     name: Build the app bundle
     runs-on: macos-26
     timeout-minutes: 90
@@ -36,8 +69,16 @@ jobs:
           path: Build/CLIPModel
           key: ${{ runner.os }}-clip-${{ hashFiles('Sources/SetscryMLX/CLIPModelSource.swift') }}
 
-      - name: Build Setscry.app
-        run: ./Scripts/make-app.sh "${GITHUB_REF_NAME#v}"
+      # The argument is a check, not an input: make-app.sh takes the version
+      # from the Swift source and fails if the tag disagrees. On a manual run
+      # there is no tag, so nothing is passed and the source wins.
+      - name: Build Setscry.app, checking the tag matches the source
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            ./Scripts/make-app.sh "${GITHUB_REF_NAME#v}"
+          else
+            ./Scripts/make-app.sh
+          fi
 
       # The zip, never the .app directory: uploading a bundle re-zips it in a way
       # that drops the executable bit and flattens the metallib symlink, and the
