@@ -13,10 +13,6 @@ struct SearchView: View {
 
     @Environment(SemanticModel.self) private var semantic
 
-    private var recordsByURL: [URL: ImageRecord] {
-        Dictionary(analysis.records.map { ($0.url, $0) }, uniquingKeysWith: { first, _ in first })
-    }
-
     private let columns = [GridItem(.adaptive(minimum: 140), spacing: 12)]
 
     var body: some View {
@@ -37,7 +33,7 @@ struct SearchView: View {
 
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(semantic.searchResults) { match in
-                            if let record = recordsByURL[match.url] {
+                            if let record = analysis.record(for: match.url) {
                                 resultTile(record: record, similarity: match.similarity)
                             }
                         }

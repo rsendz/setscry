@@ -15,17 +15,22 @@ struct DuplicateGroupCard: View {
     @State private var isConfirmingTrash = false
     @State private var isDropTargeted = false
 
-    private var keeper: ImageRecord? { model.keeper(of: group) }
-    private var redundant: [ImageRecord] { model.redundant(in: group) }
-
     var body: some View {
+        // Resolved once per render rather than per tile. `member(_:)` used to
+        // ask the model which record is the keeper for every thumbnail in the
+        // group, each answer costing a scan of the group plus a whole-struct
+        // comparison.
+        card(keeper: model.keeper(of: group), redundant: model.redundant(in: group))
+    }
+
+    private func card(keeper: ImageRecord?, redundant: [ImageRecord]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            header
+            header(redundant: redundant)
 
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(group.records) { record in
-                        member(record)
+                        member(record, keeper: keeper)
                     }
                 }
                 // Room for the overlay scrollbar to sit over nothing. It fades
@@ -53,7 +58,7 @@ struct DuplicateGroupCard: View {
         }
     }
 
-    private var header: some View {
+    private func header(redundant: [ImageRecord]) -> some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("^[\(group.records.count) file](inflect: true)")
@@ -113,7 +118,7 @@ struct DuplicateGroupCard: View {
         }
     }
 
-    private func member(_ record: ImageRecord) -> some View {
+    private func member(_ record: ImageRecord, keeper: ImageRecord?) -> some View {
         let isKeeper = record == keeper
 
         return VStack(alignment: .leading, spacing: 6) {

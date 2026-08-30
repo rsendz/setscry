@@ -164,4 +164,42 @@ struct DatasetAnalysisTests {
             try await DatasetScanner().scan(root: file) { _ in }
         }
     }
+
+    /// The lookups moved out of the views and into `make`, so they are worth
+    /// pinning: three views used to rebuild a dictionary of every record inside
+    /// their own `body`.
+    @Test("A record can be found by its URL, and a stranger cannot")
+    func recordsAreIndexedByURL() async throws {
+        let analysis = try await analyze()
+        let known = try #require(analysis.records.first)
+
+        #expect(analysis.record(for: known.url) == known)
+        #expect(analysis.record(for: URL(fileURLWithPath: "/elsewhere/x.png")) == nil)
+    }
+
+    @Test("Duplicate membership is answered without walking the groups")
+    func duplicateMembershipIsIndexed() async throws {
+        let analysis = try await analyze()
+
+        for group in analysis.exactDuplicates {
+            for record in group.records {
+                #expect(analysis.hasExactDuplicates(record))
+            }
+        }
+
+        for group in analysis.nearDuplicates {
+            for record in group.records {
+                #expect(analysis.hasNearDuplicates(record))
+            }
+        }
+
+        // A file in no group must not be claimed by either set.
+        let ungrouped = analysis.records.first { record in
+            !analysis.hasExactDuplicates(record) && !analysis.hasNearDuplicates(record)
+        }
+        if let ungrouped {
+            #expect(!analysis.exactDuplicates.contains { $0.records.contains(ungrouped) })
+            #expect(!analysis.nearDuplicates.contains { $0.records.contains(ungrouped) })
+        }
+    }
 }

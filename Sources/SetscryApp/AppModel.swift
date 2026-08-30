@@ -210,10 +210,12 @@ final class AppModel {
         if let problem = record.problem {
             findings.append(problem.summary)
         }
-        if analysis.exactDuplicates.contains(where: { $0.records.contains(record) }) {
+        // Set lookups rather than a walk over every group comparing whole
+        // records: this runs on each render of the detail sheet.
+        if analysis.hasExactDuplicates(record) {
             findings.append("Has identical copies elsewhere")
         }
-        if analysis.nearDuplicates.contains(where: { $0.records.contains(record) }) {
+        if analysis.hasNearDuplicates(record) {
             findings.append("Looks like a copy of another image")
         }
         if let group = analysis.leakage.first(where: { $0.records.contains(record) }) {

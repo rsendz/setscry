@@ -15,10 +15,6 @@ struct LabelCheckView: View {
     @Environment(SemanticModel.self) private var semantic
     @Environment(AppModel.self) private var model
 
-    private var recordsByURL: [URL: ImageRecord] {
-        Dictionary(analysis.records.map { ($0.url, $0) }, uniquingKeysWith: { first, _ in first })
-    }
-
     var body: some View {
         if !analysis.health.hasLabels {
             ContentUnavailableView {
@@ -59,7 +55,7 @@ struct LabelCheckView: View {
 
     private func row(for suggestion: LabelSanityChecker.Suggestion) -> some View {
         HStack(spacing: 12) {
-            if let record = recordsByURL[suggestion.url] {
+            if let record = analysis.record(for: suggestion.url) {
                 ThumbnailView(record: record, side: 56)
                     .imageActions(for: record)
 

@@ -213,13 +213,15 @@ final class SemanticModel {
     /// No model call is needed: the image was embedded during indexing, so this
     /// is a lookup and a sort over vectors already in memory.
     func findSimilar(to record: ImageRecord) {
-        guard let index, index.embedding(for: record.url) != nil else { return }
+        // Looked up once and reused. Testing for the vector and then asking for
+        // it again by URL walked the whole folder twice before scoring it.
+        guard let index, let vector = index.embedding(for: record.url) else { return }
 
         searchTask?.cancel()
         searchText = ""
         searchSubject = record
         isSearching = false
-        searchResults = index.nearest(to: record.url, limit: 60)
+        searchResults = index.nearest(to: vector, limit: 60, excluding: [record.url])
     }
 
     func clearSearch() {

@@ -14,10 +14,6 @@ struct ClustersView: View {
 
     @Environment(SemanticModel.self) private var semantic
 
-    private var recordsByURL: [URL: ImageRecord] {
-        Dictionary(analysis.records.map { ($0.url, $0) }, uniquingKeysWith: { first, _ in first })
-    }
-
     var body: some View {
         if !semantic.isReady {
             SemanticSetupView(
@@ -64,7 +60,7 @@ struct ClustersView: View {
                     // The most typical members first, so the row reads as a
                     // summary of the group rather than a random sample.
                     ForEach(cluster.members.prefix(12), id: \.self) { url in
-                        if let record = recordsByURL[url] {
+                        if let record = analysis.record(for: url) {
                             VStack(alignment: .leading, spacing: 4) {
                                 ThumbnailView(record: record, side: 96)
                                     .imageActions(for: record)

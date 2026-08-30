@@ -17,8 +17,35 @@ public struct DatasetAnalysis: Hashable, Sendable {
     public let leakage: [LeakageGroup]
     public let health: HealthReport
 
-    public var problemImages: [ImageRecord] {
-        records.filter { $0.problem != nil }
+    /// Derived once in ``make(root:records:scannedAt:)`` rather than computed on
+    /// demand. SwiftUI re-evaluates a view's `body` constantly, and a filter or
+    /// a dictionary build in a computed property is then a full pass over every
+    /// record per frame.
+    public let problemImages: [ImageRecord]
+
+    /// Positions in ``records``, not copies of them, so this costs a URL and an
+    /// integer per file rather than a second copy of the dataset.
+    private let indexByURL: [URL: Int]
+
+    /// URLs taking part in each kind of finding, so asking about one file is a
+    /// set lookup rather than a walk over every group.
+    private let exactDuplicateURLs: Set<URL>
+    private let nearDuplicateURLs: Set<URL>
+
+    /// The record for a file, or `nil` when it is not in this folder.
+    ///
+    /// Views look records up by URL constantly: a cluster member, a search hit
+    /// and a label suggestion all name one and none of them carry it.
+    public func record(for url: URL) -> ImageRecord? {
+        indexByURL[url].map { records[$0] }
+    }
+
+    public func hasExactDuplicates(_ record: ImageRecord) -> Bool {
+        exactDuplicateURLs.contains(record.url)
+    }
+
+    public func hasNearDuplicates(_ record: ImageRecord) -> Bool {
+        nearDuplicateURLs.contains(record.url)
     }
 
     /// Runs every analysis over an already-scanned set of records.
@@ -43,7 +70,14 @@ public struct DatasetAnalysis: Hashable, Sendable {
                 exactDuplicates: exact,
                 nearDuplicates: near,
                 leakage: leakage
-            )
+            ),
+            problemImages: records.filter { $0.problem != nil },
+            indexByURL: Dictionary(
+                records.enumerated().map { ($0.element.url, $0.offset) },
+                uniquingKeysWith: { first, _ in first }
+            ),
+            exactDuplicateURLs: Set(exact.flatMap { $0.records.map(\.url) }),
+            nearDuplicateURLs: Set(near.flatMap { $0.records.map(\.url) })
         )
     }
 
