@@ -14,11 +14,20 @@ struct ProblemImagesView: View {
     @Environment(AppModel.self) private var model
     @State private var selection: Set<URL> = []
     @State private var isConfirmingTrash = false
+    @State private var list: FilteredList<ImageRecord>
+
+    init(records: [ImageRecord]) {
+        self.records = records
+        _list = State(initialValue: FilteredList(records, keys: ImageRecord.problemSortKeys))
+    }
 
     /// What the Trash button acts on: the selection, or everything when nothing
     /// is selected. Selecting nothing is how most people arrive here, and
     /// "delete all the broken files" is the reason they came.
-    private var targets: [ImageRecord] {
+    ///
+    /// Taken once per render and passed down. Read straight from `body` it was
+    /// filtering every problem record twice for one dialog title.
+    private func targets(in records: [ImageRecord]) -> [ImageRecord] {
         selection.isEmpty ? records : records.filter { selection.contains($0.url) }
     }
 
@@ -30,60 +39,71 @@ struct ProblemImagesView: View {
                 description: Text("Nothing here is empty, cut short or corrupt.")
             )
         } else {
-            List(records, selection: $selection) { record in
-                HStack(spacing: 12) {
-                    ThumbnailView(record: record, side: 44)
-                        .imageActions(for: record)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(record.relativePath)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Text(record.problem?.summary ?? "")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Text(record.byteSize.formatted(.byteCount(style: .file)))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-
-                    Button("Reveal in Finder", systemImage: "folder") { model.revealInFinder(record) }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
-                }
-                .padding(.vertical, 4)
-            }
-            .safeAreaInset(edge: .bottom) { actionBar }
-            // Pluralized by hand: a dialog title is handed to AppKit as plain
-            // text, and inflection markup would be printed rather than applied.
-            .confirmationDialog(
-                "Move \(targets.count) file\(targets.count == 1 ? "" : "s") to the trash?",
-                isPresented: $isConfirmingTrash,
-                titleVisibility: .visible
-            ) {
-                Button("Move to trash", role: .destructive) {
-                    let doomed = targets
-                    selection = []
-                    Task { await model.moveToTrash(doomed) }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("None of these open, so there is nothing to lose. You can put them back from the trash.")
-            }
+            content(shown: list.items, targets: targets(in: list.items))
         }
     }
 
-    private var actionBar: some View {
+    private func content(shown: [ImageRecord], targets: [ImageRecord]) -> some View {
+        List(shown, selection: $selection) { record in
+            HStack(spacing: 12) {
+                ThumbnailView(record: record, side: 44)
+                    .imageActions(for: record)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(record.relativePath)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(record.problem?.summary ?? "")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text(record.byteSize.formatted(.byteCount(style: .file)))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+
+                Button("Reveal in Finder", systemImage: "folder") { model.revealInFinder(record) }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+            }
+            .padding(.vertical, 4)
+        }
+        .safeAreaInset(edge: .bottom) { actionBar(shown: shown) }
+        .findingsFilter(list)
+        .onChange(of: records) { list.source = $1 }
+        .overlay {
+            if shown.isEmpty {
+                ContentUnavailableView.search(text: list.text)
+            }
+        }
+        // Pluralized by hand: a dialog title is handed to AppKit as plain
+        // text, and inflection markup would be printed rather than applied.
+        .confirmationDialog(
+            "Move \(targets.count) file\(targets.count == 1 ? "" : "s") to the trash?",
+            isPresented: $isConfirmingTrash,
+            titleVisibility: .visible
+        ) {
+            Button("Move to trash", role: .destructive) {
+                let doomed = targets
+                selection = []
+                Task { await model.moveToTrash(doomed) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("None of these open, so there is nothing to lose. You can put them back from the trash.")
+        }
+    }
+
+    private func actionBar(shown: [ImageRecord]) -> some View {
         HStack {
             // Two separate Texts, not a ternary: a conditional produces a String,
             // and the inflection markup would then be printed rather than applied.
             Group {
                 if selection.isEmpty {
-                    Text("^[\(records.count) file](inflect: true) that won't open")
+                    Text("^[\(shown.count) file](inflect: true) that won't open")
                 } else {
                     Text("^[\(selection.count) file](inflect: true) selected")
                 }

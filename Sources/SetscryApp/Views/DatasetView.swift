@@ -74,11 +74,13 @@ struct DatasetView: View {
         case .exactDuplicates:
             DuplicatesView(
                 groups: analysis.exactDuplicates,
+                kind: .exact,
                 explanation: "Byte-for-byte identical. Keeping one of each frees \(analysis.health.reclaimableBytes.formatted(.byteCount(style: .file)))."
             )
         case .nearDuplicates:
             DuplicatesView(
                 groups: analysis.nearDuplicates,
+                kind: .near,
                 explanation: "The same image resized, re-compressed or lightly edited. Worth a look before removing anything."
             )
         case .problems:

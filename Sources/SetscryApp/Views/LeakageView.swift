@@ -12,6 +12,12 @@ struct LeakageView: View {
     let groups: [LeakageGroup]
 
     @Environment(AppModel.self) private var model
+    @State private var list: FilteredList<LeakageGroup>
+
+    init(groups: [LeakageGroup]) {
+        self.groups = groups
+        _list = State(initialValue: FilteredList(groups, keys: LeakageGroup.sortKeys))
+    }
 
     var body: some View {
         if groups.isEmpty {
@@ -28,11 +34,18 @@ struct LeakageView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    ForEach(groups) { group in
+                    ForEach(list.items) { group in
                         card(for: group)
                     }
                 }
                 .padding(20)
+            }
+            .findingsFilter(list)
+            .onChange(of: groups) { list.source = $1 }
+            .overlay {
+                if list.items.isEmpty {
+                    ContentUnavailableView.search(text: list.text)
+                }
             }
         }
     }
