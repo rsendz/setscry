@@ -12,6 +12,7 @@ import SetscryCore
 /// overwhelming table.
 enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
     case overview
+    case allImages
     case exactDuplicates
     case nearDuplicates
     case problems
@@ -48,6 +49,7 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
     var title: String {
         switch self {
         case .overview: "Overview"
+        case .allImages: "All images"
         case .exactDuplicates: "Exact duplicates"
         case .nearDuplicates: "Near duplicates"
         case .problems: "Won't open"
@@ -64,6 +66,7 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
     var summary: String {
         switch self {
         case .overview: "The numbers for this folder, and a way into the rest."
+        case .allImages: "Every image in the folder, whether or not anything is wrong with it."
         case .exactDuplicates: "The same file saved twice. Identical down to the byte."
         case .nearDuplicates: "The same picture resized, re-saved or lightly edited."
         case .problems: "Files that won't open: empty, cut short, or not images."
@@ -78,6 +81,7 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
     var systemImage: String {
         switch self {
         case .overview: "chart.bar.doc.horizontal"
+        case .allImages: "photo.on.rectangle.angled"
         case .exactDuplicates: "doc.on.doc"
         case .nearDuplicates: "square.on.square.dashed"
         case .problems: "exclamationmark.triangle"
@@ -96,7 +100,7 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
         case .nearDuplicates: analysis.nearDuplicates.count
         case .problems: analysis.health.problemCount
         case .leakage: analysis.leakage.count
-        case .overview, .labels, .search, .clusters, .labelCheck: 0
+        case .overview, .allImages, .labels, .search, .clusters, .labelCheck: 0
         }
         return count > 0 ? count : nil
     }

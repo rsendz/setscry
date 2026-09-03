@@ -71,6 +71,8 @@ struct DatasetView: View {
         switch model.selectedSection {
         case .overview:
             OverviewView(analysis: analysis)
+        case .allImages:
+            AllImagesView(records: analysis.records)
         case .exactDuplicates:
             DuplicatesView(
                 groups: analysis.exactDuplicates,

@@ -26,4 +26,10 @@ struct DatasetSectionTests {
             #expect(!section.systemImage.isEmpty)
         }
     }
+
+    @Test("Browsing is a section, and it flags nothing")
+    func browsingIsPresentAndUnbadged() {
+        #expect(DatasetSection.allCases.contains(.allImages))
+        #expect(DatasetSection.deterministicCases.contains(.allImages))
+    }
 }
