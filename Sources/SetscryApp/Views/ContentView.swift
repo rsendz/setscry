@@ -12,6 +12,7 @@ import SetscryCore
 struct ContentView: View {
     @Environment(AppModel.self) private var model
     @Environment(SemanticModel.self) private var semantic
+    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         @Bindable var model = model
@@ -51,6 +52,11 @@ struct ContentView: View {
         // previous index over. Files removed within a folder need no reset,
         // the views look records up by URL and skip what is gone.
         .onChange(of: model.analysis?.root) { semantic.reset() }
+        // The window vends one undo manager for its lifetime, and it is the one
+        // the Edit menu's Undo item reaches. Handing it over is what makes
+        // trashing undoable from the menu bar and ⌘Z.
+        .onAppear { model.undoManager = undoManager }
+        .onChange(of: undoManager) { model.undoManager = undoManager }
         .task {
             if let folder = AppModel.folderFromLaunchArguments() {
                 model.open(folder: folder)

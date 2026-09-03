@@ -39,7 +39,33 @@ final class AppModel {
 
     private var scanTask: Task<Void, Never>?
 
-    init() {
+    private let trash: Trashing
+
+    /// The window's undo manager, handed over by `ContentView`.
+    ///
+    /// `AppModel` is not a view, and the Edit menu's Undo item only reaches the
+    /// manager the window vends, so the model borrows that one rather than
+    /// owning an unreachable one of its own.
+    var undoManager: UndoManager? {
+        didSet {
+            // Each level holds a whole previous analysis, which on a large
+            // folder is not small. Five is more history than anyone reaches for.
+            undoManager?.levelsOfUndo = 5
+        }
+    }
+
+    /// Enough to put one trash operation back.
+    private struct TrashedBatch {
+        let moves: [(from: URL, to: URL)]
+        /// The analysis as it was, kept whole rather than re-derived. Restoring
+        /// the exact files restores the exact findings, and re-deriving means
+        /// running every pairwise comparison again.
+        let analysis: DatasetAnalysis
+        let keeperChoices: [DuplicateGroup.ID: URL]
+    }
+
+    init(trash: Trashing = SystemTrash()) {
+        self.trash = trash
         recentFolders = recents.load()
     }
 
@@ -89,6 +115,7 @@ final class AppModel {
         // The choices name files in the folder being replaced, so they mean
         // nothing once a different one is open.
         keeperChoices = [:]
+        undoManager?.removeAllActions()
         recentFolders = recents.recording(folder)
         phase = .scanning(ScanProgress(phase: .discovering))
 
@@ -154,6 +181,7 @@ final class AppModel {
         scanTask = nil
         notice = nil
         keeperChoices = [:]
+        undoManager?.removeAllActions()
         phase = .idle
     }
 
@@ -283,27 +311,130 @@ final class AppModel {
     func moveToTrash(_ records: [ImageRecord]) async {
         guard let analysis else { return }
 
-        var removed: Set<URL> = []
+        var moves: [(from: URL, to: URL)] = []
         var failed: [String] = []
 
         for record in records {
             do {
-                try FileManager.default.trashItem(at: record.url, resultingItemURL: nil)
-                removed.insert(record.url)
+                moves.append((from: record.url, to: try trash.trash(record.url)))
             } catch {
                 failed.append(record.fileName)
             }
         }
 
-        if !removed.isEmpty {
+        if !moves.isEmpty {
+            let removed = Set(moves.map(\.from))
+            let previous = TrashedBatch(moves: moves, analysis: analysis, keeperChoices: keeperChoices)
+
             let updated = await Task.detached(priority: .userInitiated) {
                 analysis.removing(removed)
             }.value
             phase = .loaded(updated)
+            register(previous)
         }
 
-        notice = failed.isEmpty
-            ? nil
-            : "Couldn't move \(failed.count) file(s) to the trash: \(failed.prefix(3).joined(separator: ", "))"
+        notice = failed.isEmpty ? nil : trashFailureNotice(failed)
+    }
+
+    /// Offers the batch back through the window's undo manager, which is what
+    /// puts a correctly titled item in the Edit menu and binds it to ⌘Z.
+    private func register(_ batch: TrashedBatch) {
+        // Pluralized by hand: a menu title goes to AppKit as plain text, which
+        // prints inflection markup rather than applying it.
+        let count = batch.moves.count
+        registeringUndo { undoManager in
+            undoManager.setActionName("Move \(count) file\(count == 1 ? "" : "s") to the trash")
+            undoManager.registerUndo(withTarget: self) { model in
+                // `UndoManager` calls back on the thread that registered, which
+                // is the main actor in every path that reaches here.
+                MainActor.assumeIsolated { model.restore(batch) }
+            }
+        }
+    }
+
+    /// Registers undo work, opening a group first where the manager is not
+    /// grouping by event.
+    ///
+    /// Trashing finishes on a later turn than the click that started it, so a
+    /// registration can land outside any event. A manager left to group by
+    /// event opens a group for it; one that is not throws instead.
+    private func registeringUndo(_ body: (UndoManager) -> Void) {
+        guard let undoManager else { return }
+
+        let opensItsOwnGroups = undoManager.groupsByEvent
+        if !opensItsOwnGroups { undoManager.beginUndoGrouping() }
+        body(undoManager)
+        if !opensItsOwnGroups { undoManager.endUndoGrouping() }
+    }
+
+    private func restore(_ batch: TrashedBatch) {
+        var restored: [(from: URL, to: URL)] = []
+        var failed: [String] = []
+
+        for move in batch.moves {
+            // A file may have reappeared at the original path since. Moving
+            // over it would destroy whatever is there now, so skip it instead.
+            guard !FileManager.default.fileExists(atPath: move.from.path) else {
+                failed.append(move.from.lastPathComponent)
+                continue
+            }
+
+            do {
+                try trash.restore(move.to, to: move.from)
+                restored.append(move)
+            } catch {
+                failed.append(move.from.lastPathComponent)
+            }
+        }
+
+        guard !restored.isEmpty else {
+            notice = restoreFailureNotice(failed)
+            return
+        }
+
+        if failed.isEmpty {
+            phase = .loaded(batch.analysis)
+            keeperChoices = batch.keeperChoices
+            notice = nil
+        } else {
+            // Only on the rare partial failure, and the only way the findings
+            // can still describe what is actually on disk.
+            phase = .loaded(batch.analysis.removing(Set(batch.moves.map(\.from)).subtracting(restored.map(\.from))))
+            keeperChoices = batch.keeperChoices
+            notice = restoreFailureNotice(failed)
+        }
+
+        // Registering during an undo is how `UndoManager` learns the redo, so
+        // the files just put back can be trashed again with ⇧⌘Z.
+        let records = restored.compactMap { analysis?.record(for: $0.from) }
+        if !records.isEmpty {
+            registeringUndo { undoManager in
+                undoManager.registerUndo(withTarget: self) { model in
+                    MainActor.assumeIsolated {
+                        let redo: Task<Void, Never> = Task { await model.moveToTrash(records) }
+                        _ = redo
+                    }
+                }
+            }
+        }
+    }
+
+    private func restoreFailureNotice(_ failed: [String]) -> String {
+        let named = failed.prefix(3).joined(separator: ", ")
+        let rest = failed.count > 3 ? " and \(failed.count - 3) more" : ""
+
+        return "Couldn't put \(failed.count) file\(failed.count == 1 ? "" : "s") back: \(named)\(rest). "
+            + "They may still be in the trash."
+    }
+
+    /// Pluralized by hand rather than with inflection markup: `notice` is shown
+    /// as a plain string, and the markup would be printed rather than applied.
+    private func trashFailureNotice(_ failed: [String]) -> String {
+        let named = failed.prefix(3).joined(separator: ", ")
+        // Saying how many were left out beats silently dropping them: someone
+        // checking that a clean-up finished needs the real count.
+        let rest = failed.count > 3 ? " and \(failed.count - 3) more" : ""
+
+        return "Couldn't move \(failed.count) file\(failed.count == 1 ? "" : "s") to the trash: \(named)\(rest)"
     }
 }
