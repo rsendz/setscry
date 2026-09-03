@@ -29,20 +29,34 @@ actor ThumbnailLoader {
         init(_ image: SendableImage) { self.image = image }
     }
 
-    private let cache: NSCache<NSURL, Entry> = {
-        let cache = NSCache<NSURL, Entry>()
-        cache.countLimit = 600
+    private let cache: NSCache<NSString, Entry> = {
+        let cache = NSCache<NSString, Entry>()
+        // An adaptive grid on a large display shows more than 600 tiles across
+        // one scroll burst, and these are small images.
+        cache.countLimit = 1200
         return cache
     }()
 
     func thumbnail(for url: URL, maxPixelSize: Int) async -> SendableImage? {
-        let key = url as NSURL
+        // Keyed on the size as well as the file: a 44-point list row and a
+        // 132-point grid tile are different images, and keying on the URL alone
+        // served whichever was decoded first to both.
+        let key = "\(maxPixelSize)|\(url.absoluteString)" as NSString
         if let cached = cache.object(forKey: key) { return cached.image }
 
-        let decoded = await Task.detached(priority: .utility) {
+        let work = Task.detached(priority: .utility) {
             ImageInspector.thumbnail(forFileAt: url, maxPixelSize: maxPixelSize)
                 .map(SendableImage.init)
-        }.value
+        }
+
+        // A detached task does not inherit cancellation, and `ThumbnailView`'s
+        // `.task(id:)` cancels as soon as a tile scrolls away. Without this a
+        // fling through a large grid leaves thousands of decodes running.
+        let decoded = await withTaskCancellationHandler {
+            await work.value
+        } onCancel: {
+            work.cancel()
+        }
 
         if let decoded { cache.setObject(Entry(decoded), forKey: key) }
         return decoded
