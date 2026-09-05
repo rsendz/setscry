@@ -6,7 +6,7 @@ A native macOS app that tells you what is inside a folder of images: duplicates,
 
 Drop a folder in. Setscry reads every file once, then splits the findings into focused views instead of one long table. Nothing is uploaded, and nothing is deleted without you confirming it.
 
-![CI](https://github.com/luisresendez/setscry/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/rsendz/setscry/actions/workflows/ci.yml/badge.svg)
 
 
 
@@ -15,9 +15,10 @@ Drop a folder in. Setscry reads every file once, then splits the findings into f
 | View | What it means |
 | --- | --- |
 | **Overview** | A few numbers that each mean one thing, not a single invented score |
+| **All images** | Every image in the folder, so a folder with nothing wrong with it is still worth opening |
 | **Exact duplicates** | Byte-identical files, grouped, with the space you would get back |
 | **Near duplicates** | The same picture resized, re-compressed or lightly edited |
-| **Won't open** | Empty, truncated and corrupt files |
+| **Won't open** | Empty, corrupt and truncated files |
 | **Folder balance** | How many images are in each subfolder, with an imbalance ratio |
 | **Split leakage** | One image in more than one split, which inflates reported accuracy |
 | **Search** | Find images by describing them, not by filename |
@@ -26,13 +27,17 @@ Drop a folder in. Setscry reads every file once, then splits the findings into f
 
 Exact duplicates and corruption are facts. Everything else is a suggestion to confirm, and removal always goes to the trash. The sidebar keeps the two kinds of finding apart.
 
+A file cut short by a failed copy or download is caught by the end marker its format requires, because the decoder will not say: ImageIO reports a truncated JPEG as complete and fills the missing rows with grey. JPEG, PNG, GIF, WebP and HEIC are checked. Other formats are left alone rather than accused on no evidence.
+
+Every list sorts by path, size, dimensions or date, and filters by path with `⌘F`. Trashing is undoable: `⌘Z` puts the files back and restores the findings as they were.
+
 Click any image for a full-size look with its metadata. Right-click for Quick Look, Reveal in Finder, Copy path and Find similar images. Drag an image out to Finder or another app to take it elsewhere, holding Command as you drop to move rather than copy. `⌘E` exports the findings as CSV or as a self-contained HTML page.
 
 In a duplicate group Setscry picks a file to keep, preferring the one whose name does not read as a copy, and you can change that with a click or by dragging the image you want onto the group.
 
 ## Installing it
 
-Download the latest zip from [Releases](../../releases), unzip it, and drag **Setscry.app** to Applications. Requires macOS 15 or later on Apple silicon.
+Download the latest disk image from [Releases](../../releases), open it, and drag **Setscry.app** onto Applications. Requires macOS 15 or later.
 
 The app is signed ad-hoc rather than notarized, so macOS quarantines the download and the first launch needs one extra step: open it, then allow it under **System Settings ▸ Privacy & Security**. Or from a terminal:
 
@@ -40,7 +45,7 @@ The app is signed ad-hoc rather than notarized, so macOS quarantines the downloa
 xattr -dr com.apple.quarantine /Applications/Setscry.app
 ```
 
-Apple silicon only, deliberately. MLX's Metal backend does not support Intel Macs, so a universal build would ship a half where the model-backed views could never work.
+The build is universal, so it opens on an Intel Mac too, but only the deterministic half works there. MLX's Metal backend does not exist on x86_64, so Search, Clusters and Label check report themselves unavailable rather than working. Everything the scan finds runs the same on both.
 
 ## The model
 
@@ -48,7 +53,7 @@ Setscry reads images with **CLIP** (LAION's ViT-B/32), which ships inside the ap
 
 CLIP puts images and text in one shared space. That is what makes the last three views possible: an image and the phrase "a dog on a beach" get vectors you can compare directly, so you can search a folder by describing what you want instead of remembering a filename. The same vectors, compared to each other, give the clusters and the label check.
 
-The weights ship in half precision, which is exactly what the app computes in, so it is the same model at half the size: 605 MB becomes 303 MB. `Scripts/make-app.sh` does the conversion through `prepare-model` when it builds the bundle, so the repository stays source-only.
+The weights ship in half precision, which is exactly what the app computes in, so it is the same model at half the size: 605 MB becomes 303 MB. `Scripts/bundle.sh` does the conversion through `prepare-model` when it builds the bundle, so the repository stays source-only.
 
 ## Building it
 
@@ -57,9 +62,9 @@ Requires macOS 15 or later and Swift 6.
 ```sh
 swift run -c release Setscry                            # opens the drop zone
 swift run -c release Setscry --folder ~/datasets/cats   # opens a folder straight away
-swift test                                              # 63 tests, no network, no checked-in fixtures
+swift test                                              # no network, no checked-in fixtures
 
-./Scripts/make-app.sh 1.1                               # build Setscry.app and a zip
+./Scripts/bundle.sh                                     # build Setscry.app and a .dmg
 ```
 
 `⌘O` opens a folder, the File menu keeps a recent list, `⌘1` to `⌘9` jump between sections, and `⌘?` explains what everything does.
@@ -70,7 +75,7 @@ A source build has no bundled weights, so the first run fetches them from Huggin
 
 ### Metal kernels
 
-MLX needs its kernels compiled into `mlx.metallib` and will not start without them, not even on the CPU. Since Xcode 26 the Metal compiler is no longer bundled, and `swift build` never invokes it, so a command-line build has no kernels. `Scripts/make-app.sh` handles this for the packaged app. For a source build, either option works:
+MLX needs its kernels compiled into `mlx.metallib` and will not start without them, not even on the CPU. Since Xcode 26 the Metal compiler is no longer bundled, and `swift build` never invokes it, so a command-line build has no kernels. `Scripts/bundle.sh` handles this for the packaged app. For a source build, either option works:
 
 ```sh
 # Option A: fetch Apple's prebuilt kernels (~50 MB), pinned to the exact
@@ -139,13 +144,23 @@ Labels and splits come from folder names (`root/train/tabby/001.jpg`). Anything 
 
 Scanning hashes and decodes files concurrently but bounded, so a folder of 100,000 images does not open 100,000 file handles. Corruption checking and perceptual hashing share one thumbnail decode rather than decoding twice.
 
-Embedding runs at roughly **150 images/sec** in a release build on an M-series Mac (900×700 JPEGs, batches of 16), so about eleven minutes for 100,000 images, once. Decoding happens concurrently across cores while the model runs, which matters most on large photographs: on 36-megapixel HEICs, decoding costs more than the forward pass.
+Embedding is the slow part, and it happens once per folder: the vectors are cached, so reopening a folder does not re-embed it. Decoding happens concurrently across cores while the model runs, which matters most on large photographs: on 36-megapixel HEICs, decoding costs more than the forward pass.
 
-Similarity comparison is pairwise, which is fine into the tens of thousands of images. Past that, a metric-tree index over the hashes is the next step. Vector search is exact brute force for the same reason.
+Two numbers, measured in a release build on an M-series Mac with synthetic records, worst case (no two images close enough to group):
+
+- **Near-duplicate comparison** is pairwise: 0.06s for 10,000 images, 1.3s for 50,000, 5.1s for 100,000. Each pair is an XOR and a popcount, which is why quadratic is not the problem it looks like.
+- **Vector search** is exact brute force over one contiguous buffer: 1.5ms across 10,000 images, 12ms across 100,000.
+
 
 ### On size
 
-- The **download is about 320 MB**, unpacking to a 432 MB app: 303 MB of CLIP weights, 125 MB of Metal kernels, and a 16 MB binary.
+- The **download is 328 MB**, installing a 452 MB app: 290 MB of CLIP weights, 125 MB of Metal kernels, and a 36 MB universal binary.
 - The **cached vectors** are about 2 KB per image, in one file you can clear from the File menu.
 - A **source checkout builds to roughly 3 GB** under `.build`, because MLX's C++ is compiled twice and SourceKit keeps a third index tree. None of it ships. `swift package clean` reclaims it.
+
+## License
+
+Setscry is MIT licensed. See [LICENSE](LICENSE).
+
+The app bundles work by others under their own terms: [mlx-swift](https://github.com/ml-explore/mlx-swift) (MIT), and CLIP weights from [laion/CLIP-ViT-B-32-laion2B-s34B-b79K](https://huggingface.co/laion/CLIP-ViT-B-32-laion2B-s34B-b79K), whose model card carries its licence. `swift-argument-parser` and `swift-numerics` arrive as transitive dependencies under Apache 2.0.
 
