@@ -59,8 +59,6 @@ final class SemanticModel {
         Task { await refreshCacheSize() }
     }
 
-    var modelDescription: String { clip.details }
-    var modelName: String { clip.displayName }
     /// True when the weights are already here, which a packaged build always is.
     var isModelReady: Bool { clip.isReady }
     nonisolated var deviceDescription: String { MLXRuntime.deviceDescription }

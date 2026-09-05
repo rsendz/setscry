@@ -24,12 +24,16 @@ enum SimilarityClusterer {
     /// hundred million cheap comparisons, which is acceptable; beyond that a
     /// metric-tree index would be the next step.
     static func clusters(of records: [ImageRecord], threshold: Int) -> [[ImageRecord]] {
-        let candidates = records.filter { $0.perceptualHash != nil }
-        guard candidates.count > 1 else { return [] }
+        // Built in one pass so the record, its bits and its colour cannot drift
+        // out of step, and so the inner loop needs no optional unwrapping.
+        let hashed = records.compactMap { record in
+            record.perceptualHash.map { (record: record, bits: $0.bits, color: record.colorSignature) }
+        }
+        guard hashed.count > 1 else { return [] }
 
-        // Flat arrays keep the inner loop free of optional unwrapping.
-        let bits = candidates.map { $0.perceptualHash!.bits }
-        let colors = candidates.map(\.colorSignature)
+        let candidates = hashed.map(\.record)
+        let bits = hashed.map(\.bits)
+        let colors = hashed.map(\.color)
 
         var unionFind = UnionFind(count: candidates.count)
         for i in 0..<candidates.count {

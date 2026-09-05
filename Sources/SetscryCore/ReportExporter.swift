@@ -14,6 +14,21 @@ import Foundation
 /// the summary without asking them to install anything. Both are produced from
 /// the analysis alone, with no UI types involved, so both are testable.
 public enum ReportExporter {
+    /// The report for a destination, picked from the extension the user typed.
+    ///
+    /// Choosing between a spreadsheet and a page to send someone is then one
+    /// decision made in the save panel rather than two menu items. Kept here
+    /// rather than at the call site so the choice can be tested without a panel.
+    public static func contents(
+        for url: URL,
+        analysis: DatasetAnalysis,
+        keepers: [DuplicateGroup.ID: URL] = [:]
+    ) -> String {
+        url.pathExtension.lowercased() == "csv"
+            ? csv(for: analysis, keepers: keepers)
+            : html(for: analysis, keepers: keepers)
+    }
+
     /// One row per finding, in the order the sections appear in the app.
     ///
     /// A finding is a file plus the reason it was flagged, so a file caught by

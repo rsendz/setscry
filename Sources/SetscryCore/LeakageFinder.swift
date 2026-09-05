@@ -43,8 +43,11 @@ public enum LeakageFinder {
 
         for record in cluster {
             guard let hash = record.contentHash, let split = record.split else { continue }
-            splitsByHash[hash, default: []].insert(split)
-            if splitsByHash[hash]!.count > 1 { return true }
+
+            var splits = splitsByHash[hash] ?? []
+            splits.insert(split)
+            if splits.count > 1 { return true }
+            splitsByHash[hash] = splits
         }
 
         return false

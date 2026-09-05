@@ -45,8 +45,6 @@ enum EmbeddingFile {
         var hashesInFileOrder: [String]
         /// Records read including duplicates, so the caller can decide to compact.
         var recordsRead: Int
-        /// Set when the file ended mid-record and was truncated back to alignment.
-        var repairedTornRecord: Bool
     }
 
     static func recordSize(dimension: Int) -> Int { hashSize + dimension * 4 }
@@ -131,8 +129,7 @@ enum EmbeddingFile {
             header: header,
             entries: entries,
             hashesInFileOrder: order,
-            recordsRead: whole,
-            repairedTornRecord: torn
+            recordsRead: whole
         )
     }
 
