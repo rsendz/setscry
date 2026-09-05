@@ -1,7 +1,7 @@
 #!/bin/bash
-# Builds Setscry.app and a zip anyone can download and double-click.
+# Builds Setscry.app and the .dmg anyone can download and double-click.
 #
-#   ./Scripts/make-app.sh [expected version]
+#   ./Scripts/bundle.sh [expected version]
 #
 # The version comes from Sources/SetscryCore/SetscryVersion.swift. An argument,
 # if given, is checked against it rather than used.
@@ -27,38 +27,56 @@ if [ $# -gt 0 ] && [ "$1" != "$VERSION" ]; then
 fi
 
 APP="dist/Setscry.app"
-ZIP="dist/Setscry-$VERSION.zip"
+DMG="dist/Setscry-$VERSION.dmg"
+STAGE="dist/dmg"
 
 if [ ! -f Assets/Setscry.icns ]; then
     echo "Assets/Setscry.icns is missing. Restore it from the repository before building." >&2
     exit 1
 fi
 
+ARM=".build/arm64-apple-macosx/release"
+X86=".build/x86_64-apple-macosx/release"
+
+# Universal, so the app opens on an Intel Mac instead of refusing to launch.
+# Only the deterministic half works there: MLX has no Metal backend on x86_64,
+# so search, clusters and the label check report themselves unavailable rather
+# than working. Everything the scan finds is deterministic and works on both.
+#
+# One slice at a time, then lipo, rather than passing both --arch flags at once:
+# that path switches SwiftPM to the Xcode build system, which cannot resolve
+# mlx-swift's CudaBuild target and fails before compiling anything.
 echo "Building (release, arm64)…"
-swift build -c release
+swift build -c release --arch arm64
+echo "Building (release, x86_64)…"
+swift build -c release --arch x86_64
 
 # MLX refuses to start without its compiled Metal kernels, and swift build never
 # produces them. Idempotent, so re-running this script is cheap.
 ./Scripts/fetch-mlx-metallib.sh
 
 # The weights go inside the app, so an installed copy never downloads anything.
-# Fetched and converted once, then reused on later builds.
+# Fetched and converted once, then reused on later builds. Run from the native
+# slice: converting the checkpoint needs MLX, which needs Metal.
 MODEL="Build/CLIPModel"
 if [ ! -f "$MODEL/model.safetensors" ]; then
-    ./.build/release/prepare-model "$MODEL"
+    "$ARM/prepare-model" "$MODEL"
 fi
 
-BIN=".build/release/Setscry"
-LIB=".build/release/mlx.metallib"
-[ -f "$BIN" ] || { echo "No release binary at $BIN" >&2; exit 1; }
-[ -f "$LIB" ] || { echo "No mlx.metallib at $LIB" >&2; exit 1; }
+# The kernels are Metal, so there is one copy and it comes from the arm64 slice.
+# The Intel slice has nothing to load and never asks.
+LIB="$ARM/mlx.metallib"
+for F in "$ARM/Setscry" "$X86/Setscry" "$LIB"; do
+    [ -f "$F" ] || { echo "Missing $F" >&2; exit 1; }
+done
 [ -f "$MODEL/model.safetensors" ] || { echo "No weights at $MODEL" >&2; exit 1; }
 
 echo "Assembling ${APP}…"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp "$BIN" "$APP/Contents/MacOS/Setscry"
+lipo -create -output "$APP/Contents/MacOS/Setscry" "$ARM/Setscry" "$X86/Setscry"
+lipo -info "$APP/Contents/MacOS/Setscry" | sed 's/^/  /' 
 # Stripping has to happen before signing; a signature over a binary that is
 # then modified is invalid, and macOS kills the process rather than explaining.
 strip -rSTx "$APP/Contents/MacOS/Setscry"
@@ -111,14 +129,31 @@ echo "Signing (ad-hoc)…"
 codesign --force --sign - --timestamp=none "$APP"
 codesign --verify --strict --verbose=2 "$APP"
 
-echo "Packing ${ZIP}…"
-rm -f "$ZIP"
-# ditto rather than zip: it keeps the symlink a symlink and the binary executable.
-ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+echo "Packing ${DMG}…"
+rm -f "$DMG"
+rm -rf "$STAGE"
+mkdir -p "$STAGE"
+
+# ditto rather than cp -R: it is the only copy that reproduces a bundle exactly,
+# extended attributes and all, which is what a signature is verified against.
+# cp -R makes no such guarantee, and a bundle whose signature no longer verifies
+# is killed on launch rather than merely warned about.
+ditto "$APP" "$STAGE/Setscry.app"
+
+# The drag-to-install target, which is the whole convention a .dmg carries.
+ln -s /Applications "$STAGE/Applications"
+
+# hdiutil only, no styling: a background image and a set window position need a
+# read-write image, AppleScript to place the icons, and a second conversion
+# pass, none of which help anyone install this.
+hdiutil create -volname "Setscry $VERSION" -srcfolder "$STAGE" -ov -format UDZO -quiet "$DMG"
+rm -rf "$STAGE"
+
+codesign --force --sign - --timestamp=none "$DMG"
 
 echo
 echo "Built $APP ($(du -sh "$APP" | cut -f1))"
-echo "Packed $ZIP ($(du -h "$ZIP" | cut -f1))"
+echo "Packed $DMG ($(du -h "$DMG" | cut -f1))"
 echo
-echo "To install: unzip it and drag Setscry.app to /Applications."
+echo "To install: open it and drag Setscry.app onto Applications."
 echo "Downloaded copies are quarantined; the README explains how to open one."

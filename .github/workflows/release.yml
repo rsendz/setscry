@@ -69,32 +69,32 @@ jobs:
           path: Build/CLIPModel
           key: ${{ runner.os }}-clip-${{ hashFiles('Sources/SetscryMLX/CLIPModelSource.swift') }}
 
-      # The argument is a check, not an input: make-app.sh takes the version
-      # from the Swift source and fails if the tag disagrees. On a manual run
-      # there is no tag, so nothing is passed and the source wins.
-      - name: Build Setscry.app, checking the tag matches the source
+      # The argument is a check, not an input: bundle.sh takes the version from
+      # the Swift source and fails if the tag disagrees. On a manual run there
+      # is no tag, so nothing is passed and the source wins.
+      - name: Build the disk image, checking the tag matches the source
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            ./Scripts/make-app.sh "${GITHUB_REF_NAME#v}"
+            ./Scripts/bundle.sh "${GITHUB_REF_NAME#v}"
           else
-            ./Scripts/make-app.sh
+            ./Scripts/bundle.sh
           fi
 
-      # The zip, never the .app directory: uploading a bundle re-zips it in a way
-      # that drops the executable bit and flattens the metallib symlink, and the
-      # result will not launch.
+      # The disk image, never the .app directory: uploading a bundle re-zips it
+      # in a way that drops the executable bit and flattens the metallib
+      # symlink, and the result will not launch.
       - uses: actions/upload-artifact@v4
         with:
           name: Setscry-${{ github.ref_name }}
-          path: dist/Setscry-*.zip
+          path: dist/Setscry-*.dmg
 
       - name: Attach to the release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Setscry-*.zip
+          files: dist/Setscry-*.dmg
           body: |
-            Unzip and drag **Setscry.app** to Applications.
+            Open the disk image and drag **Setscry.app** onto Applications.
 
             This is an unnotarized personal build, so the first launch needs one
             extra step: open it, then allow it under System Settings ▸ Privacy &
@@ -102,4 +102,7 @@ jobs:
 
                 xattr -dr com.apple.quarantine /Applications/Setscry.app
 
-            Requires macOS 15 or later on Apple silicon.
+            Universal, so it runs on both Apple silicon and Intel. Requires
+            macOS 15 or later. Search, clusters and the label check need MLX's
+            Metal backend, which exists only on Apple silicon; every other view
+            works on both.
