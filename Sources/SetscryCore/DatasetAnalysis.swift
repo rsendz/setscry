@@ -27,8 +27,9 @@ public struct DatasetAnalysis: Hashable, Sendable {
     /// integer per file rather than a second copy of the dataset.
     private let indexByURL: [URL: Int]
 
-    /// URLs taking part in each kind of finding, so asking about one file is a
-    /// set lookup rather than a walk over every group.
+    /// URLs taking part in either kind of duplicate finding, so asking about one
+    /// file is a set lookup rather than a walk over every group. Leakage has no
+    /// such set: it is asked about once, from the detail sheet.
     private let exactDuplicateURLs: Set<URL>
     private let nearDuplicateURLs: Set<URL>
 

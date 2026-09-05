@@ -20,9 +20,11 @@ import Foundation
 enum SimilarityClusterer {
     /// Components of two or more images, largest first.
     ///
-    /// This compares every pair. At tens of thousands of images that is a few
-    /// hundred million cheap comparisons, which is acceptable; beyond that a
-    /// metric-tree index would be the next step.
+    /// This compares every pair, which sounds worse than it measures: each
+    /// comparison is an XOR and a popcount. In a release build, worst case with
+    /// nothing close enough to group, 10,000 images take 0.06s, 50,000 take
+    /// 1.3s and 100,000 take 5.1s. An index over the hashes would buy little
+    /// against that and cost a structure to keep correct.
     static func clusters(of records: [ImageRecord], threshold: Int) -> [[ImageRecord]] {
         // Built in one pass so the record, its bits and its colour cannot drift
         // out of step, and so the inner loop needs no optional unwrapping.

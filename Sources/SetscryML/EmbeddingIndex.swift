@@ -84,12 +84,16 @@ public struct EmbeddingIndex: Sendable {
         var scores = [Float](repeating: 0, count: count)
         matrix.withUnsafeBufferPointer { rows in
             query.values.withUnsafeBufferPointer { vector in
-                cblas_sgemv(
-                    CblasRowMajor, CblasNoTrans,
-                    Int32(count), Int32(dimension),
-                    1, rows.baseAddress, Int32(dimension),
-                    vector.baseAddress, 1,
-                    0, &scores, 1
+                guard let rows = rows.baseAddress, let vector = vector.baseAddress else { return }
+                // The whole folder against the query as one (count × dimension)
+                // by (dimension × 1) product. `vDSP_mmul` rather than
+                // `cblas_sgemv`, which is deprecated unless the new LAPACK
+                // headers are enabled through unsafe compiler flags.
+                vDSP_mmul(
+                    rows, 1,
+                    vector, 1,
+                    &scores, 1,
+                    vDSP_Length(count), 1, vDSP_Length(dimension)
                 )
             }
         }

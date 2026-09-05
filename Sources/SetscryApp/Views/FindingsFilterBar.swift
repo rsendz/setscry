@@ -10,7 +10,7 @@ import SetscryCore
 
 /// The one sort-and-filter control, shared by every findings list.
 ///
-/// A modifier rather than a toolbar written into each view: six copies of the
+/// A modifier rather than a toolbar written into each view: four copies of the
 /// same two controls would drift apart, and the point of the sidebar is that
 /// every section behaves the same way.
 private struct FindingsFilter<Item: Sortable>: ViewModifier {

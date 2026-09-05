@@ -83,7 +83,7 @@ final class AppModel {
     /// Convenient when iterating on the same dataset repeatedly.
     ///
     /// It has to be a flag. AppKit treats a bare positional path as a
-    /// document-open request and then never creates the app's window at all.
+    /// document-open request and then never creates the app's window at all:
     /// the process runs, windowless, with no error anywhere.
     static func folderFromLaunchArguments() -> URL? {
         let arguments = Array(CommandLine.arguments.dropFirst())
@@ -260,8 +260,10 @@ final class AppModel {
         if let problem = record.problem {
             findings.append(problem.summary)
         }
-        // Set lookups rather than a walk over every group comparing whole
-        // records: this runs on each render of the detail sheet.
+        // Set lookups for the duplicate kinds rather than a walk over every
+        // group comparing whole records: this runs on each render of the detail
+        // sheet. Leakage still walks, having no set of its own, which is cheap
+        // only because a folder with leakage has few leaked images.
         if analysis.hasExactDuplicates(record) {
             findings.append("Has identical copies elsewhere")
         }
@@ -300,15 +302,15 @@ final class AppModel {
 
     // MARK: - Exporting
 
+    /// Whether a report is being written, so the command cannot be run twice
+    /// and the window can say something is happening.
+    private(set) var isExporting = false
+
     /// Writes the findings somewhere they can be read without Setscry.
     ///
     /// The format follows the extension the user types, so choosing between a
     /// spreadsheet and a page to send someone is one decision made in the save
     /// panel rather than two menu items.
-    /// Whether a report is being written, so the command cannot be run twice
-    /// and the window can say something is happening.
-    private(set) var isExporting = false
-
     func exportReport() {
         guard let analysis, !isExporting else { return }
 

@@ -113,7 +113,7 @@ struct ClusteringTests {
 
         let suggestions = LabelSanityChecker.suggestions(embeddings: embeddings, labels: labels)
 
-        let flagged = try? #require(suggestions.first)
+        let flagged = suggestions.first
         #expect(flagged?.url == stray)
         #expect(flagged?.currentLabel == "cat")
         #expect(flagged?.suggestedLabel == "dog")

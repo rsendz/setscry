@@ -32,7 +32,7 @@ public struct SortKey<Item: Sortable>: Identifiable, Sendable {
     let ascending: @Sendable (Item, Item) -> Bool
 
     /// A key every item can answer.
-    public static func required<Value: Comparable>(
+    public static func required<Value: Comparable & Sendable>(
         id: String,
         title: String,
         value: @escaping @Sendable (Item) -> Value
@@ -43,7 +43,7 @@ public struct SortKey<Item: Sortable>: Identifiable, Sendable {
     }
 
     /// A key some items have no value for.
-    public static func optional<Value: Comparable>(
+    public static func optional<Value: Comparable & Sendable>(
         id: String,
         title: String,
         value: @escaping @Sendable (Item) -> Value?
