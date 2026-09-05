@@ -155,9 +155,31 @@ final class AppModel {
         panel.prompt = "Scan"
         panel.message = "Choose a folder of images to scan."
 
-        if panel.runModal() == .OK, let url = panel.url {
-            open(folder: url)
+        Task {
+            if let url = await present(panel) { open(folder: url) }
         }
+    }
+
+    /// The window a panel should hang off.
+    ///
+    /// `AppModel` is not a view, and the Open command comes from the menu bar,
+    /// outside the view hierarchy entirely. The key window suits both: a menu
+    /// command acts on the window it was pulled down over.
+    private var hostWindow: NSWindow? {
+        NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible)
+    }
+
+    /// Runs a panel as a sheet on the window, so the rest of the app stays live
+    /// behind it.
+    ///
+    /// `NSOpenPanel` is an `NSSavePanel`, so one helper covers both. Falls back
+    /// to app-modal when there is no window to attach to, which is close to
+    /// unreachable but beats the command appearing to do nothing.
+    private func present(_ panel: NSSavePanel) async -> URL? {
+        guard let window = hostWindow else {
+            return panel.runModal() == .OK ? panel.url : nil
+        }
+        return await panel.beginSheetModal(for: window) == .OK ? panel.url : nil
     }
 
     func clearRecentFolders() {
@@ -283,8 +305,12 @@ final class AppModel {
     /// The format follows the extension the user types, so choosing between a
     /// spreadsheet and a page to send someone is one decision made in the save
     /// panel rather than two menu items.
+    /// Whether a report is being written, so the command cannot be run twice
+    /// and the window can say something is happening.
+    private(set) var isExporting = false
+
     func exportReport() {
-        guard let analysis else { return }
+        guard let analysis, !isExporting else { return }
 
         let panel = NSSavePanel()
         panel.title = "Export report"
@@ -292,17 +318,30 @@ final class AppModel {
         panel.allowedContentTypes = [.html, .commaSeparatedText]
         panel.message = "Choose .html for a page to open and share, or .csv for a spreadsheet."
 
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task {
+            guard let url = await present(panel) else { return }
 
-        let isCSV = url.pathExtension.lowercased() == "csv"
-        let contents = isCSV
-            ? ReportExporter.csv(for: analysis, keepers: keeperChoices)
-            : ReportExporter.html(for: analysis, keepers: keeperChoices)
+            isExporting = true
+            defer { isExporting = false }
 
-        do {
-            try contents.write(to: url, atomically: true, encoding: .utf8)
-        } catch {
-            notice = "Couldn't write the report: \(error.localizedDescription)"
+            let keepers = keeperChoices
+            // Rendering walks every finding and the write can be large. On the
+            // main actor both happen after the panel has gone away, so the
+            // window would freeze with nothing on screen to explain it.
+            let failure = await Task.detached(priority: .userInitiated) {
+                do {
+                    let contents = ReportExporter.contents(for: url, analysis: analysis, keepers: keepers)
+                    try contents.write(to: url, atomically: true, encoding: .utf8)
+                    return String?.none
+                } catch {
+                    return error.localizedDescription
+                }
+            }.value
+
+            notice = failure.map { "Couldn't write the report: \($0)" }
+                // A silent success reads as a failure. Saying where it went is
+                // also how someone finds it again.
+                ?? "Exported to \(url.lastPathComponent)."
         }
     }
 

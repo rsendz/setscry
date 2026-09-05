@@ -112,6 +112,7 @@ struct OverviewView: View {
             Spacer()
 
             Button("Export report…", systemImage: "square.and.arrow.up") { model.exportReport() }
+                .disabled(model.isExporting)
         }
         .padding(.horizontal, 16)
         // More below than above, so the row does not sit against the window edge.

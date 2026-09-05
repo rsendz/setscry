@@ -48,7 +48,7 @@ struct AppCommands: Commands {
         CommandGroup(after: .saveItem) {
             Button("Export report…") { model.exportReport() }
                 .keyboardShortcut("e")
-                .disabled(model.analysis == nil)
+                .disabled(model.analysis == nil || model.isExporting)
 
             Divider()
 

@@ -15,9 +15,6 @@ import SetscryCore
 /// keeping them in one place is what makes that true.
 struct ImageActions: ViewModifier {
     let record: ImageRecord
-    /// Views with their own trash control suppress the one in the menu rather
-    /// than offering it twice.
-    var includesTrash = true
 
     @Environment(AppModel.self) private var model
     @Environment(SemanticModel.self) private var semantic
@@ -55,11 +52,9 @@ struct ImageActions: ViewModifier {
                     }
                 }
 
-                if includesTrash {
-                    Divider()
-                    Button("Move to trash", systemImage: "trash", role: .destructive) {
-                        Task { await model.moveToTrash([record]) }
-                    }
+                Divider()
+                Button("Move to trash", systemImage: "trash", role: .destructive) {
+                    Task { await model.moveToTrash([record]) }
                 }
             }
             .help(record.relativePath)
@@ -68,7 +63,7 @@ struct ImageActions: ViewModifier {
 
 extension View {
     /// Adds the standard image actions: click to inspect, right-click for the rest.
-    func imageActions(for record: ImageRecord, includesTrash: Bool = true) -> some View {
-        modifier(ImageActions(record: record, includesTrash: includesTrash))
+    func imageActions(for record: ImageRecord) -> some View {
+        modifier(ImageActions(record: record))
     }
 }
