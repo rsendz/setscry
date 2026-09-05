@@ -52,7 +52,7 @@ struct ReportExporterTests {
 
     @Test("The HTML is one self-contained page that escapes what it prints")
     func htmlContent() async throws {
-        let (analysis, folder) = try await makeAnalysis()
+        let (_, folder) = try await makeAnalysis()
         try Data().write(to: folder.url.appendingPathComponent("<script>.png"))
 
         let rescanned = try await DatasetScanner().scan(root: folder.url) { _ in }
