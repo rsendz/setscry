@@ -16,12 +16,12 @@ import Foundation
 /// plist from it, so the binary and the bundle cannot disagree.
 public enum SetscryVersion {
     /// Read by Scripts/version.sh, so this stays a plain literal on one line.
-    public static let current = "1.2"
+    public static let current = "1.3"
 
     /// Whether this process is running from an `.app` rather than `swift run`.
     public static var isBundled: Bool { Bundle.main.bundleIdentifier != nil }
 
-    /// What the app shows. An unbundled build says so: "1.2" from a working
-    /// copy and "1.2" from a release are not the same software.
+    /// What the app shows. An unbundled build says so: "1.3" from a working
+    /// copy and "1.3" from a release are not the same software.
     public static var display: String { isBundled ? current : "\(current) (dev)" }
 }
