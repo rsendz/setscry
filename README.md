@@ -29,6 +29,8 @@ Exact duplicates and corruption are facts. Everything else is a suggestion to co
 
 A file cut short by a failed copy or download is caught by the end marker its format requires, because the decoder will not say: ImageIO reports a truncated JPEG as complete and fills the missing rows with grey. JPEG, PNG, GIF, WebP and HEIC are checked. Other formats are left alone rather than accused on no evidence.
 
+The open folder is watched, including new subfolders. Findings refresh after file activity settles, without leaving the current section. **File ▸ Watch folder for changes** pauses updates; `⌘R` refreshes manually. External changes clear undo history to avoid restoring stale findings.
+
 Every list sorts by path, size, dimensions or date, and filters by path with `⌘F`. Trashing is undoable: `⌘Z` puts the files back and restores the findings as they were.
 
 Click any image for a full-size look with its metadata. Right-click for Quick Look, Reveal in Finder, Copy path and Find similar images. Drag an image out to Finder or another app to take it elsewhere, holding Command as you drop to move rather than copy. `⌘E` exports the findings as CSV or as a self-contained HTML page.

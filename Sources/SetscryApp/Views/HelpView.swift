@@ -67,7 +67,8 @@ struct HelpView: View {
             step(1, "Open a folder", "Drag one onto the window, or press ⌘O. Every image inside is read once, subfolders included.")
             step(2, "Work through the findings", "Exact duplicates and Won't open are facts. Near duplicates and anything under “With a model” are suggestions, so check those first.")
             step(3, "Remove what you don't want", "In a duplicate group, pick the one to keep, then trash the rest. Deleting moves files to the trash, so nothing is gone until you empty it.")
-            step(4, "Or take them elsewhere", "Drag any image out to Finder or another app. Hold Command as you drop to move it instead of copying it.")
+            step(4, "Keep findings current", "The open folder is watched, including its subfolders. File ▸ Watch folder for changes pauses updates; ⌘R refreshes manually. External changes clear undo history so an old snapshot cannot replace newer findings.")
+            step(5, "Or take them elsewhere", "Drag any image out to Finder or another app. Hold Command as you drop to move it instead of copying it.")
         }
     }
 

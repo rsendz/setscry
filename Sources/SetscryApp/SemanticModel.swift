@@ -52,6 +52,7 @@ final class SemanticModel {
     private let clip = CLIPEmbedder()
     private let store: EmbeddingStore
     private var work: Task<Void, Never>?
+    private var workID = UUID()
     private var searchTask: Task<Void, Never>?
 
     init() {
@@ -82,9 +83,12 @@ final class SemanticModel {
 
     /// Gets the chosen backend ready. Only CLIP has anything to fetch, and only
     /// it reports download progress.
-    private func prepareModel() async throws {
+    private func prepareModel(id: UUID) async throws {
         try await clip.prepare { [weak self] progress in
-            Task { @MainActor in self?.report(download: progress) }
+            Task { @MainActor in
+                guard self?.workID == id else { return }
+                self?.report(download: progress)
+            }
         }
     }
 
@@ -93,6 +97,8 @@ final class SemanticModel {
 
         work?.cancel()
         phase = .preparing
+        let id = UUID()
+        workID = id
 
         // Byte-identical copies share an embedding, so only representatives are
         // sent through the model.
@@ -106,7 +112,9 @@ final class SemanticModel {
             guard let self else { return }
 
             do {
-                try await self.prepareModel()
+                try Task.checkCancellation()
+                try await self.prepareModel(id: id)
+                try Task.checkCancellation()
 
                 let embeddings = try await self.embed(records)
                 try Task.checkCancellation()
@@ -125,15 +133,15 @@ final class SemanticModel {
                 self.labelSuggestions = suggestions
                 self.phase = .ready
                 await self.refreshCacheSize()
-            } catch is CancellationError {
-                self.phase = .idle
             } catch {
+                guard !Task.isCancelled else { return }
                 self.phase = .failed(error.localizedDescription)
             }
         }
     }
 
     func cancel() {
+        workID = UUID()
         work?.cancel()
         work = nil
         phase = .idle
@@ -143,6 +151,9 @@ final class SemanticModel {
     /// the embedding cache alone: outliving a change of folder is the whole
     /// point of it.
     func reset() {
+        searchTask?.cancel()
+        searchTask = nil
+        isSearching = false
         cancel()
         reusedCount = 0
         index = nil
@@ -161,7 +172,9 @@ final class SemanticModel {
     /// folder all arrive already embedded.
     private func embed(_ records: [ImageRecord]) async throws -> [URL: Embedding] {
         await store.load()
+        try Task.checkCancellation()
         var results = await store.cached(for: records)
+        try Task.checkCancellation()
         reusedCount = results.count
 
         let pending = records.filter { results[$0.url] == nil }
@@ -177,6 +190,7 @@ final class SemanticModel {
             // The whole batch goes through the model in one pass, which is most
             // of the speed of a transformer.
             let embeddings = try await clip.embed(imagesAt: batch.map(\.url))
+            try Task.checkCancellation()
 
             var fresh: [(contentHash: String, embedding: Embedding)] = []
             for (record, embedding) in zip(batch, embeddings) {
@@ -189,6 +203,7 @@ final class SemanticModel {
             // Written per batch rather than at the end, so quitting part-way
             // through a large folder keeps everything embedded so far.
             await store.append(fresh)
+            try Task.checkCancellation()
 
             start += batch.count
             phase = .embedding(completed: reusedCount + start, total: records.count)

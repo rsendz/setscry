@@ -38,6 +38,20 @@ final class AppModel {
     private let recents = RecentFolders()
 
     private var scanTask: Task<Void, Never>?
+    private var scanID = UUID()
+    private var openRoot: URL?
+    private var watcher: FolderWatcher?
+    private var refreshDelay: Task<Void, Never>?
+    private var refreshPending = false
+    private(set) var isRefreshing = false
+    private(set) var contentRevision = 0
+    var watchesFolder = true {
+        didSet {
+            configureWatcher()
+            if watchesFolder { scheduleRefresh() }
+        }
+    }
+
 
     private let trash: Trashing
 
@@ -108,38 +122,111 @@ final class AppModel {
     }
 
     func open(folder: URL) {
-        scanTask?.cancel()
+        stopScanning()
+        openRoot = folder
         selectedSection = .overview
         notice = nil
         inspecting = nil
-        // The choices name files in the folder being replaced, so they mean
-        // nothing once a different one is open.
         keeperChoices = [:]
         undoManager?.removeAllActions()
         recentFolders = recents.recording(folder)
         phase = .scanning(ScanProgress(phase: .discovering))
+        configureWatcher()
+        startScan(folder: folder, refreshing: false)
+    }
 
+    private func startScan(folder: URL, refreshing: Bool) {
+        scanTask?.cancel()
+        let id = UUID()
+        scanID = id
+        isRefreshing = refreshing
         scanTask = Task { [weak self] in
-            let scanner = DatasetScanner()
             let onProgress: @Sendable (ScanProgress) -> Void = { progress in
-                Task { @MainActor in self?.report(progress) }
+                Task { @MainActor in
+                    guard let self, self.scanID == id else { return }
+                    self.report(progress)
+                }
             }
-
             do {
-                // `scan` is nonisolated, so this work runs off the main actor.
-                let records = try await scanner.scan(root: folder, onProgress: onProgress)
-                let analysis = await Task.detached(priority: .userInitiated) {
+                let records = try await DatasetScanner().scan(root: folder, onProgress: onProgress)
+                try Task.checkCancellation()
+                let updated = await Task.detached(priority: .userInitiated) {
                     DatasetAnalysis.make(root: folder, records: records)
                 }.value
-
-                guard !Task.isCancelled else { return }
-                self?.phase = .loaded(analysis)
-            } catch is CancellationError {
-                self?.phase = .idle
+                guard let self, self.scanID == id, !Task.isCancelled else { return }
+                if self.analysis?.records != records {
+                    self.undoManager?.removeAllActions()
+                    self.phase = .loaded(updated)
+                    self.contentRevision += 1
+                    if let inspecting = self.inspecting {
+                        self.inspecting = updated.record(for: inspecting.url)
+                    }
+                    self.reconcileKeepers(with: updated)
+                }
+                self.finishScan()
             } catch {
-                self?.phase = .failed(error.localizedDescription)
+                guard let self, self.scanID == id, !Task.isCancelled else { return }
+                if refreshing {
+                    self.notice = "Couldn't refresh the folder: \(error.localizedDescription)"
+                } else {
+                    self.phase = .failed(error.localizedDescription)
+                }
+                self.finishScan()
             }
         }
+    }
+
+    private func finishScan() {
+        scanTask = nil
+        isRefreshing = false
+        if refreshPending {
+            refreshPending = false
+            scheduleRefresh()
+        }
+    }
+
+    private func configureWatcher() {
+        watcher = nil
+        refreshDelay?.cancel()
+        refreshDelay = nil
+        refreshPending = false
+        guard watchesFolder, let root = openRoot else { return }
+        do {
+            watcher = try FolderWatcher(root: root) { [weak self] in
+                Task { @MainActor in
+                    guard self?.openRoot == root, self?.watchesFolder == true else { return }
+                    self?.scheduleRefresh()
+                }
+            }
+        } catch {
+            notice = "Couldn't watch this folder. Use Rescan to update the findings."
+        }
+    }
+
+    private func scheduleRefresh() {
+        refreshDelay?.cancel()
+        refreshDelay = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(600)) }
+            catch { return }
+            guard let self, let root = self.openRoot else { return }
+            if self.scanTask != nil {
+                self.refreshPending = true
+            } else {
+                self.startScan(folder: root, refreshing: self.analysis != nil)
+            }
+        }
+    }
+
+    private func stopScanning() {
+        scanID = UUID()
+        scanTask?.cancel()
+        scanTask = nil
+        refreshDelay?.cancel()
+        refreshDelay = nil
+        watcher = nil
+        openRoot = nil
+        refreshPending = false
+        isRefreshing = false
     }
 
     /// Presents the standard folder chooser.
@@ -188,19 +275,17 @@ final class AppModel {
     }
 
     func cancelScan() {
-        scanTask?.cancel()
-        scanTask = nil
+        stopScanning()
         phase = .idle
     }
 
     func rescan() {
         guard let root = analysis?.root else { return }
-        open(folder: root)
+        startScan(folder: root, refreshing: true)
     }
 
     func close() {
-        scanTask?.cancel()
-        scanTask = nil
+        stopScanning()
         notice = nil
         keeperChoices = [:]
         undoManager?.removeAllActions()
@@ -284,6 +369,23 @@ final class AppModel {
     /// to someone, so it has to be overridable.
     private(set) var keeperChoices: [DuplicateGroup.ID: URL] = [:]
 
+    private func reconcileKeepers(with updated: DatasetAnalysis) {
+        let previous = keeperChoices.sorted { $0.key < $1.key }
+        var choices: [DuplicateGroup.ID: URL] = [:]
+        for group in updated.exactDuplicates + updated.nearDuplicates {
+            let members = Set(group.records.map(\.url))
+            if let chosen = keeperChoices[group.id], members.contains(chosen) {
+                choices[group.id] = chosen
+            } else if group.kind == .near,
+                      let surviving = previous.first(where: {
+                          $0.key.hasPrefix("near-") && members.contains($0.value)
+                      }) {
+                choices[group.id] = surviving.value
+            }
+        }
+        keeperChoices = choices
+    }
+
     func keeper(of group: DuplicateGroup) -> ImageRecord? {
         guard let chosen = keeperChoices[group.id],
               let record = group.records.first(where: { $0.url == chosen })
@@ -351,6 +453,12 @@ final class AppModel {
     /// Setscry makes is a suggestion.
     func moveToTrash(_ records: [ImageRecord]) async {
         guard let analysis else { return }
+        scanTask?.cancel()
+        scanTask = nil
+        scanID = UUID()
+        isRefreshing = false
+        let operationRoot = openRoot
+        defer { if watchesFolder { scheduleRefresh() } }
 
         var moves: [(from: URL, to: URL)] = []
         var failed: [String] = []
@@ -370,6 +478,7 @@ final class AppModel {
             let updated = await Task.detached(priority: .userInitiated) {
                 analysis.removing(removed)
             }.value
+            guard openRoot == operationRoot else { return }
             phase = .loaded(updated)
             register(previous)
         }
@@ -409,6 +518,11 @@ final class AppModel {
     }
 
     private func restore(_ batch: TrashedBatch) {
+        scanTask?.cancel()
+        scanTask = nil
+        scanID = UUID()
+        isRefreshing = false
+        defer { if watchesFolder { scheduleRefresh() } }
         var restored: [(from: URL, to: URL)] = []
         var failed: [String] = []
 

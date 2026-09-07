@@ -19,7 +19,7 @@ struct ThumbnailView: View {
             .frame(width: side, height: side)
             .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 8))
             .clipShape(.rect(cornerRadius: 8))
-            .task(id: record.url) { await load() }
+            .task(id: record) { await load() }
     }
 
     @ViewBuilder
@@ -42,8 +42,10 @@ struct ThumbnailView: View {
 
     private func load() async {
         // Decode at 2× so the thumbnail stays sharp on Retina displays.
-        image = await ThumbnailLoader.shared
-            .thumbnail(for: record.url, maxPixelSize: Int(side * 2))?
+        let decoded = await ThumbnailLoader.shared
+            .thumbnail(for: record.url, maxPixelSize: Int(side * 2), contentHash: record.contentHash)?
             .cgImage
+        guard !Task.isCancelled else { return }
+        image = decoded
     }
 }

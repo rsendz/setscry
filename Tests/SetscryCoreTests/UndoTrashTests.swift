@@ -78,6 +78,22 @@ struct UndoTrashTests {
 
     private enum Failure: Error { case scanNeverFinished }
 
+    @Test("Undo during a refresh preserves restored findings and redo")
+    func undoDuringRefresh() async throws {
+        let (model, images, _) = try makeModel()
+        defer { model.close() }
+        try ImageFixture.writePNG(seed: 40, to: images.url.appendingPathComponent("a.png"))
+        try ImageFixture.writePNG(seed: 41, to: images.url.appendingPathComponent("b.png"))
+        let before = try await load(model, from: images)
+        await model.moveToTrash([try #require(before.records.first)])
+        model.rescan()
+        await Task.yield()
+        model.undoManager?.undo()
+        try await Task.sleep(for: .seconds(2))
+        #expect(model.analysis?.records == before.records)
+        #expect(model.undoManager?.canRedo == true)
+    }
+
     @Test("Trashing removes the files and offers them back")
     func trashingIsUndoable() async throws {
         let (model, images, _) = try makeModel()

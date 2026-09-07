@@ -103,6 +103,9 @@ struct DatasetView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup {
+            if model.isRefreshing {
+                ProgressView().controlSize(.small).help("Updating findings")
+            }
             Button("Help", systemImage: "questionmark.circle") {
                 isShowingHelp = true
             }

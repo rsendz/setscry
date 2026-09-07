@@ -24,6 +24,7 @@ struct AppCommands: Commands {
     }
 
     var body: some Commands {
+        @Bindable var model = model
         CommandGroup(replacing: .appInfo) {
             Button("About Setscry") { model.showAbout() }
         }
@@ -51,6 +52,9 @@ struct AppCommands: Commands {
                 .disabled(model.analysis == nil || model.isExporting)
 
             Divider()
+
+            Toggle("Watch folder for changes", isOn: $model.watchesFolder)
+                .disabled(model.analysis == nil)
 
             Button("Rescan folder") { model.rescan() }
                 .keyboardShortcut("r")

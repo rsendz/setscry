@@ -26,7 +26,7 @@ struct ContentView: View {
                 ScanningView(progress: progress, onCancel: model.cancelScan)
 
             case .loaded(let analysis):
-                if analysis.records.isEmpty {
+                if analysis.records.isEmpty && !model.watchesFolder {
                     ContentUnavailableView {
                         Label("No images in that folder", systemImage: "photo.on.rectangle")
                     } description: {
@@ -51,7 +51,7 @@ struct ContentView: View {
         // Embeddings belong to one folder; opening another must not carry the
         // previous index over. Files removed within a folder need no reset,
         // the views look records up by URL and skip what is gone.
-        .onChange(of: model.analysis?.root) { semantic.reset() }
+        .onChange(of: model.contentRevision) { semantic.reset() }
         // The window vends one undo manager for its lifetime, and it is the one
         // the Edit menu's Undo item reaches. Handing it over is what makes
         // trashing undoable from the menu bar and ⌘Z.

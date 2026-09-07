@@ -37,11 +37,11 @@ actor ThumbnailLoader {
         return cache
     }()
 
-    func thumbnail(for url: URL, maxPixelSize: Int) async -> SendableImage? {
+    func thumbnail(for url: URL, maxPixelSize: Int, contentHash: String? = nil) async -> SendableImage? {
         // Keyed on the size as well as the file: a 44-point list row and a
         // 132-point grid tile are different images, and keying on the URL alone
         // served whichever was decoded first to both.
-        let key = "\(maxPixelSize)|\(url.absoluteString)" as NSString
+        let key = "\(maxPixelSize)|\(contentHash ?? "")|\(url.absoluteString)" as NSString
         if let cached = cache.object(forKey: key) { return cached.image }
 
         let work = Task.detached(priority: .utility) {
