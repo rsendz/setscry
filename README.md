@@ -1,174 +1,204 @@
-<img src="Assets/icon-512.png" width="128" alt="">
-
 # Setscry
 
-A native macOS app that tells you what is inside a folder of images: duplicates, near-duplicates, files that won't open, lopsided folders, and train/test leakage. Everything runs on your Mac.
+<img src="Assets/icon-512.png" width="104" align="right" alt="">
 
-Drop a folder in. Setscry reads every file once, then splits the findings into focused views instead of one long table. Nothing is uploaded, and nothing is deleted without you confirming it.
+A native macOS app for understanding and cleaning a folder of images. Find duplicates,
+broken files, uneven folders and train/test leakage; search by description; or check
+whether incoming photos are already in your library. Everything runs on your Mac.
 
-![CI](https://github.com/rsendz/setscry/actions/workflows/ci.yml/badge.svg)
-
-
+[![CI](https://github.com/rsendz/setscry/actions/workflows/ci.yml/badge.svg)](https://github.com/rsendz/setscry/actions/workflows/ci.yml)
 
 ## What it finds
 
-| View | What it means |
+Drop a folder in. Setscry reads its images and separates the findings into focused views.
+Exact duplicates and corruption are facts. Visual similarity and model-backed findings
+are suggestions to review.
+
+![Moving through the overview, image grid, folder balance, unreadable files and split leakage](Assets/demo-overview.gif)
+
+| View | What it shows |
 | --- | --- |
-| **Overview** | A few numbers that each mean one thing, not a single invented score |
-| **All images** | Every image in the folder, so a folder with nothing wrong with it is still worth opening |
-| **Exact duplicates** | Byte-identical files, grouped, with the space you would get back |
-| **Near duplicates** | The same picture resized, re-compressed or lightly edited |
+| **Overview** | Image counts, space used and the findings that need attention |
+| **All images** | Every image, including those with nothing wrong |
+| **Exact duplicates** | Byte-identical files and the space their extra copies take |
+| **Near duplicates** | Images resized, re-compressed or lightly edited |
 | **Won't open** | Empty, corrupt and truncated files |
-| **Folder balance** | How many images are in each subfolder, with an imbalance ratio |
-| **Split leakage** | One image in more than one split, which inflates reported accuracy |
-| **Search** | Find images by describing them, not by filename |
-| **Clusters** | Groups of images that look alike, which is how overrepresented subjects show up |
-| **Label check** | Images closer to another folder's images than to their own |
+| **Folder balance** | Images per subfolder and the imbalance between them |
+| **Split leakage** | The same image appearing in more than one dataset split |
 
-Exact duplicates and corruption are facts. Everything else is a suggestion to confirm, and removal always goes to the trash. The sidebar keeps the two kinds of finding apart.
+### Browse and filter
 
-A file cut short by a failed copy or download is caught by the end marker its format requires, because the decoder will not say: ImageIO reports a truncated JPEG as complete and fills the missing rows with grey. JPEG, PNG, GIF, WebP and HEIC are checked. Other formats are left alone rather than accused on no evidence.
+Sort findings by path, size, dimensions or date. Press `⌘F` to filter paths. Click an image
+for its preview and metadata; right-click for Quick Look, Reveal in Finder or Copy path.
+Drag images to another app to copy them, or hold Command while dropping to move them.
 
-The open folder is watched, including new subfolders. Findings refresh after file activity settles, without leaving the current section. **File ▸ Watch folder for changes** pauses updates; `⌘R` refreshes manually. External changes clear undo history to avoid restoring stale findings.
+![Browsing all images and filtering the grid by folder name](Assets/demo-browse.gif)
 
-Every list sorts by path, size, dimensions or date, and filters by path with `⌘F`. Trashing is undoable: `⌘Z` puts the files back and restores the findings as they were.
+### Choose the copy to keep
 
-Click any image for a full-size look with its metadata. Right-click for Quick Look, Reveal in Finder, Copy path and Find similar images. Drag an image out to Finder or another app to take it elsewhere, holding Command as you drop to move rather than copy. `⌘E` exports the findings as CSV or as a self-contained HTML page.
+Setscry suggests a keeper in each duplicate group. Choose another with **Keep this one**,
+or drag it onto the group's keeper area. Removal asks for confirmation and moves files
+to the Trash. `⌘Z` restores them; `⇧⌘Z` redoes the move.
 
-In a duplicate group Setscry picks a file to keep, preferring the one whose name does not read as a copy, and you can change that with a click or by dragging the image you want onto the group.
+![Changing the duplicate keeper and inspecting near-duplicate images](Assets/demo-duplicates.gif)
 
-## Comparing folders
+### Keep up with incoming files
 
-Open your library, then choose **File ▸ Compare with folder…** (`⇧⌘O`) to check incoming images against it. **Already in library** means byte-identical; **Possible copies** means visual structure and colour agree; **Not in library** means neither check found a match. Unreadable files are listed separately.
+The open folder is watched, including new subfolders. Findings refresh after file activity
+settles, while the current view stays open. Pause this with **File ▸ Watch folder for
+changes**, or refresh manually with `⌘R`.
 
-Comparison is read-only, works without CLIP, and compares each incoming image directly with the library. Both folders must be separate. Results are a snapshot: compare again after changing incoming files. Changes detected in the open library invalidate the comparison.
+![Images arriving in a watched subfolder update the findings automatically](Assets/demo-watch.gif)
 
-## Installing it
+A refresh rescans the folder and reuses cached embeddings when you next read the images.
+Surviving keeper choices stay selected. External changes clear undo history so an old
+snapshot cannot replace newer findings.
 
-Download the latest disk image from [Releases](../../releases), open it, and drag **Setscry.app** onto Applications. Requires macOS 15 or later.
+### Compare two folders
 
-The app is signed ad-hoc rather than notarized, so macOS quarantines the download and the first launch needs one extra step: open it, then allow it under **System Settings ▸ Privacy & Security**. Or from a terminal:
+Open your library, then choose **File ▸ Compare with folder…** (`⇧⌘O`). Each incoming image
+is checked directly against the library using the same content hashes and visual
+fingerprints as duplicate detection.
+
+![Comparing exact matches, possible copies, new images and unreadable files](Assets/demo-comparison.gif)
+
+**Already in library** means byte-identical. **Possible copies** means visual structure and
+colour agree. **Not in library** means neither check found a match. Unreadable files are
+listed separately.
+
+Comparison is read-only and needs no model. The folders must be separate, with neither
+inside the other. Results are a snapshot: compare again after changing incoming files.
+Changes detected in the open library invalidate the comparison.
+
+### Search by describing an image
+
+Search for what a picture shows, such as “mountains and a lake.” **Clusters** groups similar
+images, and **Label check** flags images closer to another folder's contents than their own.
+Choose **Read the images** once to prepare these views.
+
+![Searching 12,715 photos for a church tower, then for an open parachute](Assets/demo-search.gif)
+
+These views use **CLIP**, LAION's ViT-B/32 image and text model. Its weights ship inside the
+app: no account, upload or model download is needed. Cached vectors survive reopening,
+renaming and copying because they are keyed by file content.
+
+*Demos recorded in Setscry 1.5 on a working copy of [Imagenette](https://github.com/fastai/imagenette):
+12,715 labelled photos in a train and validation split, with deliberate copies, resized copies,
+an empty file and a truncated one.*
+
+## Installing
+
+Download the disk image from [Releases](../../releases/latest), open it, and drag
+**Setscry.app** onto Applications. Requires macOS 15 or later.
+
+The app is signed ad-hoc. On first launch, allow it under **System Settings ▸ Privacy &
+Security**, or remove the download quarantine from a terminal:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Setscry.app
 ```
 
-The build is universal, so it opens on an Intel Mac too, but only the deterministic half works there. MLX's Metal backend does not exist on x86_64, so Search, Clusters and Label check report themselves unavailable rather than working. Everything the scan finds runs the same on both.
+The app is universal. Scanning, duplicate detection and folder comparison work on both
+Apple silicon and Intel. Search, Clusters and Label check require Apple silicon because
+MLX's Metal backend is unavailable on Intel.
 
-## The model
+### From source
 
-Setscry reads images with **CLIP** (LAION's ViT-B/32), which ships inside the app. There is nothing to download, no account, and no network request at any point.
-
-CLIP puts images and text in one shared space. That is what makes the last three views possible: an image and the phrase "a dog on a beach" get vectors you can compare directly, so you can search a folder by describing what you want instead of remembering a filename. The same vectors, compared to each other, give the clusters and the label check.
-
-The weights ship in half precision, which is exactly what the app computes in, so it is the same model at half the size: 605 MB becomes 303 MB. `Scripts/bundle.sh` does the conversion through `prepare-model` when it builds the bundle, so the repository stays source-only.
-
-## Building it
-
-Requires macOS 15 or later and Swift 6.
+Requires macOS 15 or later and a Swift 6.3 toolchain for the pinned MLX dependency.
 
 ```sh
-swift run -c release Setscry                            # opens the drop zone
-swift run -c release Setscry --folder ~/datasets/cats   # opens a folder straight away
-swift test                                              # no network, no checked-in fixtures
+swift run -c release Setscry
+swift run -c release Setscry --folder ~/datasets/cats
+swift test
 
-./Scripts/bundle.sh                                     # build Setscry.app and a .dmg
+./Scripts/bundle.sh                 # universal app and disk image in dist/
 ```
 
-`⌘O` opens a folder, the File menu keeps a recent list, `⌘1` to `⌘9` jump between sections, and `⌘?` explains what everything does.
+Use a release build for real folders. A source build has no bundled model, so its first
+model-backed operation downloads weights to `~/Library/Application Support/Setscry/Models`.
+The packaged app already includes them.
 
-Use `-c release` for real folders. Debug builds run the model about six times slower, because MLX's C++ is compiled unoptimised along with everything else.
-
-A source build has no bundled weights, so the first run fetches them from Hugging Face and caches them under `~/Library/Application Support/Setscry/Models`. Only the packaged app carries them.
-
-### Metal kernels
-
-MLX needs its kernels compiled into `mlx.metallib` and will not start without them, not even on the CPU. Since Xcode 26 the Metal compiler is no longer bundled, and `swift build` never invokes it, so a command-line build has no kernels. `Scripts/bundle.sh` handles this for the packaged app. For a source build, either option works:
+MLX also needs compiled Metal kernels. The bundle script handles this. For a source build:
 
 ```sh
-# Option A: fetch Apple's prebuilt kernels (~50 MB), pinned to the exact
-# MLX version mlx-swift vendors.
 swift build -c release
 ./Scripts/fetch-mlx-metallib.sh
-
-# Option B: install the Metal compiler itself (~700 MB) and build in Xcode,
-# which then compiles the kernels for you.
-xcodebuild -downloadComponent MetalToolchain
 ```
 
-Without the kernels the deterministic views still work in full, and the model-backed ones say what is missing instead of crashing. `swift test` passes either way; the MLX tests skip themselves.
+Alternatively, install Apple's Metal compiler with `xcodebuild -downloadComponent MetalToolchain`
+and build in Xcode. Without kernels, deterministic features remain available and the
+model-backed views explain what is missing. MLX tests skip themselves when unavailable.
+
+### Controls
+
+| Action | Shortcut |
+| --- | --- |
+| Open a folder | `⌘O` |
+| Compare with another folder | `⇧⌘O` |
+| Jump between the first nine views | `⌘1`–`⌘9` |
+| Focus the current search/filter field | `⌘F` |
+| Rescan | `⌘R` |
+| Export findings as CSV or HTML | `⌘E` |
+| Undo / redo a trash operation | `⌘Z` / `⇧⌘Z` |
+| Help | `⌘?` |
 
 ## How it works
 
 ```
-folder -> scan (metadata, SHA-256, decode check, perceptual hash, colour signature)
-       -> analysis (duplicate grouping, leakage, health)
-       -> CLIP embeddings -> search, clusters, label checks
-       -> SwiftUI views
+folder → scan → deterministic analysis → focused SwiftUI views
+            └→ cached CLIP embeddings → search, clusters, label checks
+incoming folder → scan → compare with the open library
+filesystem events → debounced refresh
 ```
 
-Four targets, with the dependency arrow pointing one way:
+- **SetscryCore** holds metadata, hashes, duplicate detection, leakage, folder comparison
+  and report export. Value types keep it testable without a window or model.
+- **SetscryML** defines the embedding interfaces, cache, vector search, clustering and
+  label checks. It has no MLX dependency; Vision provides a second embedding backend.
+- **SetscryMLX** implements CLIP's image and text towers against MLX. It is the only target
+  that knows the model runtime.
+- **Setscry** contains the SwiftUI views and app state. Deterministic features work even
+  when the model is unavailable.
 
-- **`SetscryCore`** is all the deterministic analysis. No AppKit, no SwiftUI, no ML. Value types only, so every finding is testable without a screen or a model.
-- **`SetscryML`** is the model seam, and dependency-free on purpose. `EmbeddingProvider` is the whole interface; clustering, label checks and vector search are written against `Embedding`, so they never learn which model produced it. `FeaturePrintEmbedder` is a second conformance over Vision's built-in feature print, which keeps the seam honest.
-- **`SetscryMLX`** is a CLIP dual encoder on MLX, conforming to `TextEmbeddingProvider`. The only target that knows MLX exists. A different checkpoint is a `CLIPModelSource` away; a different architecture is one new conformance.
-- **`Setscry`** is the SwiftUI app. `AppModel` owns the deterministic half and `SemanticModel` the model-backed half, so the app runs fully with the second one switched off.
+**Two signals for near duplicates.** A 64-bit dHash compares brightness structure; a 4×4
+colour signature prevents recoloured artwork from being treated as the same image.
+Comparison checks matches directly, so a chain of similar images cannot imply a match
+between unrelated endpoints.
 
-### The embedding cache
+**Checking incomplete files.** ImageIO can decode truncated images without reporting an
+error. Setscry also checks the format's required structure for JPEG, PNG, GIF, WebP and
+HEIC. Labels and splits come from folder names such as `train/tabby/001.jpg`.
 
-Reading a large folder with a model is the slowest thing Setscry does, and doing it again on every reopen was the main thing standing between it and real use. The vectors are written to `~/Library/Application Support/Setscry/Embeddings/<model>.embeddings` as a 128-byte header followed by fixed-size records, so appending is a seek and a write, and reading is arithmetic rather than parsing.
+**Persistent embeddings.** Vectors live in `~/Library/Application Support/Setscry/Embeddings`
+as fixed-size records indexed by SHA-256. Each completed batch is appended immediately;
+a partial final record is discarded on the next load. **File ▸ Clear cached image readings**
+shows the space used and clears the cache.
 
-The key is the SHA-256 the scan already computes, which buys more than surviving a reopen. Renaming a file, copying it, or moving it to another folder all land on the same cached vector, because the key describes the bytes rather than the path.
+## Performance
 
-Records are appended after every batch of sixteen, so quitting part-way through a large folder keeps the work done so far. A record left half-written by that quit is detected on load and the file is truncated back to alignment. Without that, every later append would be misaligned and the cache would return quiet garbage. **File ▸ Clear cached image readings** says how much space it holds and throws it away.
+Scanning bounds concurrent file reads. Corruption checking and perceptual hashing share
+one thumbnail decode. Folder watching batches filesystem activity into a refresh instead
+of starting a scan for every event.
 
-### Duplicate detection
+Measurements from a release build on an M-series Mac, using synthetic records:
 
-Two signals, because either alone is wrong:
+| Operation | 10,000 images | 100,000 images |
+| --- | --- | --- |
+| Near-duplicate comparison, worst case with no matches | 0.06 s | 5.1 s |
+| Exact vector search over a contiguous buffer | 1.5 ms | 12 ms |
 
-- A **64-bit dHash** compares brightness structure, so it survives resizing and re-encoding. It is also colourblind, so on its own it treats every recolouring of one design as the same image.
-- A **4×4 colour signature** catches exactly that case.
+Folder comparison uses a hash lookup for exact matches and pairwise checks for visual
+matches. Its visual work grows with the product of the two folder sizes.
 
-Two images count as the same picture only when they agree on both. Measured against real files, genuine resized copies score a colour distance of 0 while recoloured variants of one design score 20 to 89, so the threshold of 12 sits in open space.
-
-Byte-identical files satisfy both conditions automatically, so exact copies always cluster.
-
-### Leakage
-
-Leakage runs over every usable record rather than one representative per duplicate family. Collapsing duplicates first would hide the most important case: an identical file copied into both `train` and `test`. Findings are grouped per image rather than per pair, so a file copied three times across two splits is reported once, as one leaked image.
-
-Labels and splits come from folder names (`root/train/tabby/001.jpg`). Anything that does not fit that shape is reported as unlabeled rather than guessed at.
-
-### The CLIP port
-
-`SetscryMLX` implements CLIP's text and vision towers directly against MLX rather than pulling in a model runtime. Both are small, and writing them out keeps the parts that are easy to get quietly wrong visible:
-
-- Modules use the checkpoint's own parameter names, `pre_layrnorm` typo included, so weights load by name with no remapping table to drift. Loading verifies with `.all`, which fails loudly on a missing, unused or mis-shaped parameter instead of producing plausible nonsense.
-- The activation is read from `config.json`. OpenAI's checkpoints use `quick_gelu`, LAION's use `gelu`, and the wrong one degrades every result without any error.
-- Inference runs in float16. That needs a causal mask whose masked value is finite in the type. The usual `-1e9` is already infinity in half precision, which makes the *unmasked* entries `0 × infinity`, and every text embedding comes back `NaN` while images keep working.
-- Images are decoded straight to the size the model needs, with the limit derived from the aspect ratio so wide images are not upscaled back.
-
-## Performance notes
-
-Scanning hashes and decodes files concurrently but bounded, so a folder of 100,000 images does not open 100,000 file handles. Corruption checking and perceptual hashing share one thumbnail decode rather than decoding twice.
-
-Embedding is the slow part, and it happens once per folder: the vectors are cached, so reopening a folder does not re-embed it. Decoding happens concurrently across cores while the model runs, which matters most on large photographs: on 36-megapixel HEICs, decoding costs more than the forward pass.
-
-Two numbers, measured in a release build on an M-series Mac with synthetic records, worst case (no two images close enough to group):
-
-- **Near-duplicate comparison** is pairwise: 0.06s for 10,000 images, 1.3s for 50,000, 5.1s for 100,000. Each pair is an XOR and a popcount, which is why quadratic is not the problem it looks like.
-- **Vector search** is exact brute force over one contiguous buffer: 1.5ms across 10,000 images, 12ms across 100,000.
-
-
-### On size
-
-- The **download is 328 MB**, installing a 452 MB app: 290 MB of CLIP weights, 125 MB of Metal kernels, and a 36 MB universal binary.
-- The **cached vectors** are about 2 KB per image, in one file you can clear from the File menu.
-- A **source checkout builds to roughly 3 GB** under `.build`, because MLX's C++ is compiled twice and SourceKit keeps a third index tree. None of it ships. `swift package clean` reclaims it.
+The 1.5 disk image is **345 MB** (329 MiB), installing an app of roughly **452 MiB**.
+Half-precision CLIP weights and Metal kernels account for most of it. Cached vectors use
+about **2 KB per unique image**. Build products stay under `.build`; `swift package clean`
+reclaims that space.
 
 ## License
 
-Setscry is MIT licensed. See [LICENSE](LICENSE).
-
-The app bundles work by others under their own terms: [mlx-swift](https://github.com/ml-explore/mlx-swift) (MIT), and CLIP weights from [laion/CLIP-ViT-B-32-laion2B-s34B-b79K](https://huggingface.co/laion/CLIP-ViT-B-32-laion2B-s34B-b79K), whose model card carries its licence. `swift-argument-parser` and `swift-numerics` arrive as transitive dependencies under Apache 2.0.
-
+[MIT](LICENSE). Bundled dependencies retain their own terms:
+[mlx-swift](https://github.com/ml-explore/mlx-swift) is MIT licensed; the
+[CLIP model card](https://huggingface.co/laion/CLIP-ViT-B-32-laion2B-s34B-b79K) carries the
+weights' licence. Transitive dependencies `swift-argument-parser` and `swift-numerics`
+are Apache 2.0 licensed.
