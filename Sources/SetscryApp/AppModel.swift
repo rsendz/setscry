@@ -52,6 +52,7 @@ final class AppModel {
         }
     }
 
+    let comparison = ComparisonModel()
 
     private let trash: Trashing
 
@@ -123,6 +124,7 @@ final class AppModel {
 
     func open(folder: URL) {
         stopScanning()
+        comparison.clear()
         openRoot = folder
         selectedSection = .overview
         notice = nil
@@ -158,6 +160,7 @@ final class AppModel {
                     self.undoManager?.removeAllActions()
                     self.phase = .loaded(updated)
                     self.contentRevision += 1
+                    self.comparison.invalidate()
                     if let inspecting = self.inspecting {
                         self.inspecting = updated.record(for: inspecting.url)
                     }
@@ -247,6 +250,22 @@ final class AppModel {
         }
     }
 
+    func chooseComparisonFolder() {
+        guard let library = analysis else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Compare"
+        panel.message = "Choose incoming images to compare with \(library.root.lastPathComponent)."
+        Task {
+            guard let folder = await present(panel), let current = analysis,
+                  current.root == library.root else { return }
+            selectedSection = .comparison
+            comparison.compare(folder: folder, library: current)
+        }
+    }
+
     /// The window a panel should hang off.
     ///
     /// `AppModel` is not a view, and the Open command comes from the menu bar,
@@ -286,6 +305,7 @@ final class AppModel {
 
     func close() {
         stopScanning()
+        comparison.clear()
         notice = nil
         keeperChoices = [:]
         undoManager?.removeAllActions()
@@ -480,6 +500,7 @@ final class AppModel {
             }.value
             guard openRoot == operationRoot else { return }
             phase = .loaded(updated)
+            comparison.invalidate()
             register(previous)
         }
 
@@ -523,6 +544,7 @@ final class AppModel {
         scanID = UUID()
         isRefreshing = false
         defer { if watchesFolder { scheduleRefresh() } }
+        comparison.invalidate()
         var restored: [(from: URL, to: URL)] = []
         var failed: [String] = []
 

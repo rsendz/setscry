@@ -7,6 +7,10 @@
 
 import SwiftUI
 
+extension Notification.Name {
+    static let focusSetscrySearch = Notification.Name("focusSetscrySearch")
+}
+
 /// The menu bar.
 ///
 /// Commands live outside the view hierarchy, which is why the models are owned
@@ -47,6 +51,10 @@ struct AppCommands: Commands {
         }
 
         CommandGroup(after: .saveItem) {
+            Button("Compare with folder…") { model.chooseComparisonFolder() }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+                .disabled(model.analysis == nil)
+
             Button("Export report…") { model.exportReport() }
                 .keyboardShortcut("e")
                 .disabled(model.analysis == nil || model.isExporting)
@@ -77,6 +85,14 @@ struct AppCommands: Commands {
                 NotificationCenter.default.post(name: .showSetscryHelp, object: nil)
             }
             .keyboardShortcut("?", modifiers: .command)
+        }
+
+        CommandGroup(after: .textEditing) {
+            Button("Find in current view") {
+                NotificationCenter.default.post(name: .focusSetscrySearch, object: nil)
+            }
+            .keyboardShortcut("f")
+            .disabled(model.analysis == nil)
         }
 
         CommandMenu("Go") {
