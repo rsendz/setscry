@@ -37,6 +37,12 @@ Click any image for a full-size look with its metadata. Right-click for Quick Lo
 
 In a duplicate group Setscry picks a file to keep, preferring the one whose name does not read as a copy, and you can change that with a click or by dragging the image you want onto the group.
 
+## Comparing folders
+
+Open your library, then choose **File ▸ Compare with folder…** (`⇧⌘O`) to check incoming images against it. **Already in library** means byte-identical; **Possible copies** means visual structure and colour agree; **Not in library** means neither check found a match. Unreadable files are listed separately.
+
+Comparison is read-only, works without CLIP, and compares each incoming image directly with the library. Both folders must be separate. Results are a snapshot: compare again after changing incoming files. Changes detected in the open library invalidate the comparison.
+
 ## Installing it
 
 Download the latest disk image from [Releases](../../releases), open it, and drag **Setscry.app** onto Applications. Requires macOS 15 or later.

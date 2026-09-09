@@ -21,6 +21,7 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
     case search
     case clusters
     case labelCheck
+    case comparison
 
     var id: String { rawValue }
 
@@ -58,6 +59,7 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
         case .search: "Search"
         case .clusters: "Clusters"
         case .labelCheck: "Label check"
+        case .comparison: "Compare folders"
         }
     }
 
@@ -75,6 +77,7 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
         case .search: "Find images by describing them."
         case .clusters: "Groups of images that look alike."
         case .labelCheck: "Images that look more like another folder's contents."
+        case .comparison: "Check whether images from another folder are already in this library."
         }
     }
 
@@ -90,6 +93,7 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
         case .search: "magnifyingglass"
         case .clusters: "square.grid.3x3"
         case .labelCheck: "checkmark.seal"
+        case .comparison: "rectangle.on.rectangle"
         }
     }
 
@@ -100,7 +104,7 @@ enum DatasetSection: String, CaseIterable, Identifiable, Hashable {
         case .nearDuplicates: analysis.nearDuplicates.count
         case .problems: analysis.health.problemCount
         case .leakage: analysis.leakage.count
-        case .overview, .allImages, .labels, .search, .clusters, .labelCheck: 0
+        case .overview, .allImages, .labels, .search, .clusters, .labelCheck, .comparison: 0
         }
         return count > 0 ? count : nil
     }

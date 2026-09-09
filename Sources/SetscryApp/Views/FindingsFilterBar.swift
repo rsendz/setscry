@@ -16,12 +16,17 @@ import SetscryCore
 private struct FindingsFilter<Item: Sortable>: ViewModifier {
     @Bindable var list: FilteredList<Item>
     let prompt: String
+    @FocusState private var searchFocused: Bool
 
     func body(content: Content) -> some View {
         content
             // `.searchable` rather than a plain field: it puts the box where
             // macOS users look for it and brings ⌘F with it.
             .searchable(text: $list.text, placement: .toolbar, prompt: prompt)
+            .searchFocused($searchFocused)
+            .onReceive(NotificationCenter.default.publisher(for: .focusSetscrySearch)) { _ in
+                searchFocused = true
+            }
             .toolbar {
                 ToolbarItem {
                     Menu {

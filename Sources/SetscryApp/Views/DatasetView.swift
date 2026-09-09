@@ -97,6 +97,8 @@ struct DatasetView: View {
             ClustersView(analysis: analysis)
         case .labelCheck:
             LabelCheckView(analysis: analysis)
+        case .comparison:
+            ComparisonView()
         }
     }
 

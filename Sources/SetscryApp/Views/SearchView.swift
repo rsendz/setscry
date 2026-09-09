@@ -12,6 +12,7 @@ struct SearchView: View {
     let analysis: DatasetAnalysis
 
     @Environment(SemanticModel.self) private var semantic
+    @FocusState private var searchFocused: Bool
 
     private let columns = [GridItem(.adaptive(minimum: 140), spacing: 12)]
 
@@ -47,6 +48,10 @@ struct SearchView: View {
                 prompt: "a dog on a beach"
             )
             .onSubmit(of: .search) { semantic.search() }
+            .searchFocused($searchFocused)
+            .onReceive(NotificationCenter.default.publisher(for: .focusSetscrySearch)) { _ in
+                searchFocused = true
+            }
             .overlay {
                 if semantic.searchResults.isEmpty, semantic.searchSubject == nil {
                     emptyState
