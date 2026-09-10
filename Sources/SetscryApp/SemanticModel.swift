@@ -119,14 +119,22 @@ final class SemanticModel {
                 let embeddings = try await self.embed(records)
                 try Task.checkCancellation()
 
-                let index = EmbeddingIndex(
-                    providerIdentifier: self.clip.identifier,
-                    embeddings: embeddings
-                )
-                let clusters = EmbeddingClusterer.cluster(embeddings)
-                let suggestions = LabelSanityChecker.suggestions(
-                    embeddings: embeddings, labels: labels
-                )
+                // Clustering is CPU work even when every embedding was cached.
+                // Keep the window and Cancel button responsive while it runs.
+                let providerIdentifier = self.clip.identifier
+                let summary = Task.detached(priority: .userInitiated) {
+                    try Task.checkCancellation()
+                    let index = EmbeddingIndex(providerIdentifier: providerIdentifier, embeddings: embeddings)
+                    let clusters = EmbeddingClusterer.cluster(embeddings)
+                    try Task.checkCancellation()
+                    let suggestions = LabelSanityChecker.suggestions(embeddings: embeddings, labels: labels)
+                    return (index, clusters, suggestions)
+                }
+                let (index, clusters, suggestions) = try await withTaskCancellationHandler {
+                    try await summary.value
+                } onCancel: { summary.cancel() }
+                try Task.checkCancellation()
+                guard self.workID == id else { return }
 
                 self.index = index
                 self.clusters = clusters
@@ -180,7 +188,7 @@ final class SemanticModel {
         let pending = records.filter { results[$0.url] == nil }
         phase = .embedding(completed: reusedCount, total: records.count)
 
-        let batchSize = 16
+        let batchSize = 32
         var start = 0
 
         while start < pending.count {

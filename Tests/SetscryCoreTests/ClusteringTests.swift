@@ -11,6 +11,48 @@ import Testing
 
 @Suite("Clustering and label checks")
 struct ClusteringTests {
+    @Test("Clustering excludes stray vector widths before native vector operations")
+    func mixedDimensions() {
+        let embeddings = [url("a"): Embedding([1, 0]), url("b"): Embedding([0.9, 0.1]),
+                          url("c"): Embedding([0, 1]), url("stray"): Embedding([1]),
+                          url("empty"): Embedding([])]
+        let clusters = EmbeddingClusterer.cluster(embeddings, into: 2)
+        #expect(Set(clusters.flatMap(\.members)) == Set([url("a"), url("b"), url("c")]))
+        #expect(EmbeddingClusterer.cluster([url("empty"): Embedding([])]).isEmpty)
+    }
+
+    @Test("Cancelled semantic analysis stops without producing findings")
+    func cancelledAnalysis() async {
+        let embeddings = Dictionary(uniqueKeysWithValues: (0..<10).map {
+            (url("image-\($0)"), Embedding($0 < 4 ? [1, 0] : [0, 1]))
+        })
+        let labels = Dictionary(uniqueKeysWithValues: (0..<10).map {
+            (url("image-\($0)"), $0 < 5 ? "cat" : "dog")
+        })
+        #expect(LabelSanityChecker.suggestions(embeddings: embeddings, labels: labels).map(\.url)
+            == [url("image-4")])
+        let task = Task {
+            while !Task.isCancelled { await Task.yield() }
+            return (EmbeddingClusterer.cluster(embeddings),
+                    LabelSanityChecker.suggestions(embeddings: embeddings, labels: labels))
+        }
+        task.cancel()
+        let (clusters, suggestions) = await task.value
+        #expect(clusters.isEmpty)
+        #expect(suggestions.isEmpty)
+    }
+
+    @Test("Identical vectors form one cluster even when more are requested")
+    func identicalVectors() {
+        let embeddings = Dictionary(uniqueKeysWithValues: (0..<10).map {
+            (url("same-\($0).png"), Embedding([1, 0, 0]))
+        })
+        let clusters = EmbeddingClusterer.cluster(embeddings, into: 5)
+        #expect(clusters.count == 1)
+        #expect(clusters.first?.members.count == 10)
+        #expect(clusters.first?.cohesion == 1)
+    }
+
     /// Builds a vector near one of three well-separated directions, so the
     /// correct grouping is known in advance.
     private func vector(group: Int, jitter: Float, dimension: Int = 8) -> Embedding {

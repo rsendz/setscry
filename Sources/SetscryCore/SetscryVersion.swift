@@ -16,7 +16,7 @@ import Foundation
 /// plist from it, so the binary and the bundle cannot disagree.
 public enum SetscryVersion {
     /// Read by Scripts/version.sh, so this stays a plain literal on one line.
-    public static let current = "1.5"
+    public static let current = "1.6"
 
     /// Whether this process is running from an `.app` rather than `swift run`.
     public static var isBundled: Bool { Bundle.main.bundleIdentifier != nil }

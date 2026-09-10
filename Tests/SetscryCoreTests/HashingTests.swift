@@ -11,6 +11,18 @@ import Testing
 
 @Suite("Hashing")
 struct HashingTests {
+    @Test("Content hashes retain canonical SHA-256 hex across chunk boundaries")
+    func canonicalContentHash() throws {
+        let folder = try ImageFixture.Folder()
+        let file = folder.url.appendingPathComponent("bytes")
+        try Data("abc".utf8).write(to: file)
+        #expect(try ContentHasher.sha256(ofFileAt: file, chunkSize: 1)
+            == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+        try Data().write(to: file)
+        #expect(try ContentHasher.sha256(ofFileAt: file)
+            == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+    }
+
     @Test("Identical bytes produce identical content hashes")
     func contentHashMatchesForCopies() throws {
         let folder = try ImageFixture.Folder()

@@ -188,9 +188,32 @@ Measurements from a release build on an M-series Mac, using synthetic records:
 | Exact vector search over a contiguous buffer | 1.5 ms | 12 ms |
 
 Folder comparison uses a hash lookup for exact matches and pairwise checks for visual
-matches. Its visual work grows with the product of the two folder sizes.
+matches over compact fingerprint arrays. Its visual work still grows with the product
+of the two folder sizes; the matching thresholds are unchanged.
 
-The 1.5 disk image is **345 MB** (329 MiB), installing an app of roughly **452 MiB**.
+Version 1.6 avoids repeated work when seeding semantic clusters, uses Accelerate for
+vector comparisons, and runs the resulting analysis away from the UI thread. CLIP uses
+fused attention and bounded batches of 32 images to improve GPU throughput.
+
+Median of three release runs on the same Mac, using synthetic records and vectors:
+
+| Operation | 1.5 | 1.6 |
+| --- | --- | --- |
+| Compare 5,000 incoming images against 20,000 library images, no matches | 7.25 s | 0.08 s |
+| Cluster 3,000 image vectors with 512 dimensions | 0.68 s | 0.06 s |
+
+These timings exclude file scanning and model loading. Initial scans still decode every
+image; larger files and slower storage can dominate that time. The opt-in benchmarks
+also measure scanning and uncached CLIP processing on 256 generated images:
+
+```sh
+SETSCRY_BENCHMARKS=1 swift test -c release --filter PerformanceTests
+```
+
+Run `./Scripts/fetch-mlx-metallib.sh` after the first test build if its CLIP benchmark
+reports missing kernels. It uses existing model weights and never downloads a model.
+
+The 1.6 disk image is **345 MB** (329 MiB), installing an app of roughly **452 MiB**.
 Half-precision CLIP weights and Metal kernels account for most of it. Cached vectors use
 about **2 KB per unique image**. Build products stay under `.build`; `swift package clean`
 reclaims that space.

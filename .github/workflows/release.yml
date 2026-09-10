@@ -96,13 +96,8 @@ jobs:
           body: |
             Open the disk image and drag **Setscry.app** onto Applications.
 
-            This is an unnotarized personal build, so the first launch needs one
-            extra step: open it, then allow it under System Settings ▸ Privacy &
-            Security, or run
+            This is an unnotarized personal build, so the first launch needs one extra step: open it, then allow it under System Settings ▸ Privacy & Security, or run
 
                 xattr -dr com.apple.quarantine /Applications/Setscry.app
 
-            Universal, so it runs on both Apple silicon and Intel. Requires
-            macOS 15 or later. Search, clusters and the label check need MLX's
-            Metal backend, which exists only on Apple silicon; every other view
-            works on both.
+            Universal, so it runs on both Apple silicon and Intel. Requires macOS 15 or later. Search, clusters and the label check need MLX's Metal backend, which exists only on Apple silicon; every other view works on both.

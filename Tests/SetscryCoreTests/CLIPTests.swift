@@ -7,6 +7,7 @@
 
 import CoreGraphics
 import Foundation
+import MLX
 import Testing
 @testable import SetscryMLX
 
@@ -18,6 +19,34 @@ import Testing
 /// `SETSCRY_DOWNLOAD_MODEL=1`, to exercise them.
 @Suite("CLIP")
 struct CLIPTests {
+    @Test("Attention agrees with the explicit calculation, with and without a causal mask")
+    func attentionMatchesReference() throws {
+        guard MLXRuntime.isAvailable else { return }
+        for dtype in [DType.float32, .float16] {
+            let layer = CLIPAttention(dimensions: 128, heads: 2)
+            try layer.update(parameters: layer.parameters().mapValues { $0.asType(dtype) }, verify: .all)
+            for masked in [false, true] {
+                // Production lengths select MLX's full attention kernel.
+                let length = masked ? 77 : 50
+                let inputValues: [Float] = (0..<(256 * length)).map { Float($0 % 31) / Float(31) - Float(0.5) }
+                let input = MLXArray(inputValues).reshaped(2, length, 128).asType(dtype)
+                let mask = masked ? CLIPTextModel.causalMask(length: length, dtype: dtype) : nil
+                let queries = layer.queryProjection(input).reshaped(2, length, 2, 64).transposed(0, 2, 1, 3)
+                let keys = layer.keyProjection(input).reshaped(2, length, 2, 64).transposed(0, 2, 3, 1)
+                let values = layer.valueProjection(input).reshaped(2, length, 2, 64).transposed(0, 2, 1, 3)
+                var scores = (queries * Float(0.125)).matmul(keys)
+                if let mask { scores = scores + mask.asType(scores.dtype) }
+                let expected = layer.outputProjection(softmax(scores, axis: -1).matmul(values)
+                    .transposed(0, 2, 1, 3).reshaped(2, length, 128))
+                let actual = layer(input, mask: mask)
+                let error = MLX.abs(actual - expected).max().item(Float.self)
+                #expect(error < 0.002)
+                let finite = actual.asType(.float32).asArray(Float.self).allSatisfy { $0.isFinite }
+                #expect(finite)
+            }
+        }
+    }
+
     // MARK: - Tokenizer
 
     private func makeTokenizer() throws -> CLIPTokenizer? {
@@ -217,14 +246,15 @@ struct CLIPTests {
         guard let embedder = try await makeEmbedder() else { return }
 
         let folder = try ImageFixture.Folder()
-        let a = try ImageFixture.writePNG(seed: 1, size: 256, to: folder.url.appendingPathComponent("a.png"))
-        let b = try ImageFixture.writePNG(seed: 2, size: 256, to: folder.url.appendingPathComponent("b.png"))
-
-        let batched = try await embedder.embed(imagesAt: [a, b])
-        let singleA = try await embedder.embed(imageAt: a)
-        let singleB = try await embedder.embed(imageAt: b)
-
-        #expect(batched[0].similarity(to: singleA) > 0.999)
-        #expect(batched[1].similarity(to: singleB) > 0.999)
+        let urls = try (0..<32).map { index in
+            try ImageFixture.writePNG(seed: UInt64(index), size: 256,
+                to: folder.url.appendingPathComponent("image-\(index).png"))
+        }
+        let batched = try await embedder.embed(imagesAt: urls)
+        #expect(batched.count == 32)
+        for index in [0, 15, 31] {
+            let single = try await embedder.embed(imageAt: urls[index])
+            #expect(batched[index].similarity(to: single) > 0.999)
+        }
     }
 }

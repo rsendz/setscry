@@ -5,6 +5,7 @@
 //  Created by Luis Resendez on 06/08/2026.
 //
 
+import Accelerate
 import Foundation
 
 /// Groups embeddings into clusters of visually or semantically similar images.
@@ -40,22 +41,36 @@ public enum EmbeddingClusterer {
         into requestedCount: Int? = nil,
         iterations: Int = 25
     ) -> [Cluster] {
+        guard !Task.isCancelled else { return [] }
+        // Match the index's width selection before calling native vector math.
+        // A stray or empty vector must not misalign a dot product's buffers.
+        var widths: [Int: Int] = [:]
+        for embedding in embeddings.values where embedding.dimension > 0 {
+            widths[embedding.dimension, default: 0] += 1
+        }
+        guard let dimension = widths.max(by: { a, b in
+            a.value == b.value ? a.key < b.key : a.value < b.value
+        })?.key else { return [] }
         let entries = embeddings
+            .filter { $0.value.dimension == dimension }
             .map { (url: $0.key, values: $0.value.values) }
             .sorted { $0.url.path < $1.url.path }
 
-        guard let dimension = entries.first?.values.count, dimension > 0 else { return [] }
         let points = entries.map(\.values)
         // A single cluster is not special-cased: it runs through the same loop
         // so its reported cohesion is measured rather than assumed. Claiming
         // perfect cohesion for a group nobody measured would describe a mixed
         // pile as "very consistent" in the UI.
-        let k = max(1, min(requestedCount ?? suggestedClusterCount(for: points.count), points.count))
+        let requested = max(1, min(requestedCount ?? suggestedClusterCount(for: points.count), points.count))
 
-        var centres = seedCentres(points: points, k: k, dimension: dimension)
+        var centres = seedCentres(points: points, k: requested)
+        guard !centres.isEmpty else { return [] }
+        // Identical points can exhaust the distinct centres before reaching k.
+        let k = centres.count
         var assignments = [Int](repeating: 0, count: points.count)
 
         for _ in 0..<iterations {
+            guard !Task.isCancelled else { return [] }
             var changed = false
 
             for (index, point) in points.enumerated() {
@@ -82,16 +97,20 @@ public enum EmbeddingClusterer {
 
     // MARK: - k-means++
 
-    private static func seedCentres(points: [[Float]], k: Int, dimension: Int) -> [[Float]] {
+    private static func seedCentres(points: [[Float]], k: Int) -> [[Float]] {
         var generator = SeededGenerator(seed: 0x5EED_C10D)
         var centres = [points[Int(generator.next(upperBound: UInt64(points.count)))]]
+        var closest = [Float](repeating: -Float.greatestFiniteMagnitude, count: points.count)
 
         while centres.count < k {
+            guard !Task.isCancelled else { return [] }
             // Distance to the closest chosen centre, squared, as the sampling
-            // weight, the standard k-means++ spread.
-            let weights = points.map { point -> Double in
-                let best = centres.map { similarity(point, $0) }.max() ?? 0
-                let distance = Double(1 - best)
+            // weight. Only the newest centre can improve the previous best;
+            // comparing every earlier centre again made seeding quadratic in k.
+            let newest = centres[centres.count - 1]
+            let weights = points.enumerated().map { index, point -> Double in
+                closest[index] = max(closest[index], similarity(point, newest))
+                let distance = Double(1 - closest[index])
                 return distance * distance
             }
 
@@ -141,8 +160,10 @@ public enum EmbeddingClusterer {
         for (index, point) in points.enumerated() {
             let cluster = assignments[index]
             counts[cluster] += 1
-            for axis in 0..<dimension {
-                sums[cluster][axis] += point[axis]
+            sums[cluster].withUnsafeMutableBufferPointer { sum in
+                for axis in 0..<dimension {
+                    sum[axis] += point[axis]
+                }
             }
         }
 
@@ -202,9 +223,7 @@ public enum EmbeddingClusterer {
 
     private static func similarity(_ a: [Float], _ b: [Float]) -> Float {
         var total: Float = 0
-        for index in a.indices {
-            total += a[index] * b[index]
-        }
+        vDSP_dotpr(a, 1, b, 1, &total, vDSP_Length(a.count))
         return total
     }
 

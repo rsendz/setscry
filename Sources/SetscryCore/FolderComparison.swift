@@ -27,7 +27,16 @@ public enum FolderComparison {
         try Task.checkCancellation()
         let usable = library.filter(\.isUsable)
         let byHash = Dictionary(grouping: usable.filter { $0.contentHash != nil }, by: \.contentHash)
+        // Keep the hot loop over compact hashes. Walking ImageRecord values for
+        // every pair repeatedly retains URLs, strings and arrays that almost
+        // every non-match immediately discards.
+        let visual = usable.enumerated().compactMap { index, record -> (index: Int, bits: UInt64, color: ColorSignature)? in
+            guard let hash = record.perceptualHash, let color = record.colorSignature else { return nil }
+            return (index, hash.bits, color)
+        }
+        let bits = visual.map(\.bits)
         var entries: [Entry] = []
+        entries.reserveCapacity(candidates.count)
         for candidate in candidates {
             try Task.checkCancellation()
             guard candidate.isUsable, let hash = candidate.contentHash else {
@@ -40,14 +49,14 @@ public enum FolderComparison {
             }
             var matches: [ImageRecord] = []
             if let structure = candidate.perceptualHash, let colour = candidate.colorSignature {
-                for (index, record) in usable.enumerated() {
-                    if index % 1024 == 0 { try Task.checkCancellation() }
-                    guard let other = record.perceptualHash,
-                          structure.distance(to: other) <= DuplicateFinder.defaultNearThreshold,
-                          let otherColour = record.colorSignature,
-                          colour.distance(to: otherColour) <= ColorSignature.maximumMatchingDistance
-                    else { continue }
-                    matches.append(record)
+                // Cancellation stays responsive without a task lookup per pair.
+                for start in stride(from: 0, to: bits.count, by: 1024) {
+                    try Task.checkCancellation()
+                    for index in start..<min(start + 1024, bits.count)
+                    where (structure.bits ^ bits[index]).nonzeroBitCount <= DuplicateFinder.defaultNearThreshold
+                        && colour.distance(to: visual[index].color) <= ColorSignature.maximumMatchingDistance {
+                        matches.append(usable[visual[index].index])
+                    }
                 }
             }
             entries.append(Entry(candidate: candidate, kind: matches.isEmpty ? .new : .near, matches: matches))

@@ -4,6 +4,35 @@ import Testing
 @testable import Setscry
 
 struct FolderComparisonTests {
+    @Test("Direct comparison preserves order, threshold boundaries and exact precedence")
+    func directMatches() throws {
+        func record(_ name: String, bits: UInt64?, hash: String? = nil,
+                    color: UInt8? = 128, problem: ImageProblem? = nil) -> ImageRecord {
+            ImageRecord(url: URL(fileURLWithPath: "/\(name)"), relativePath: name,
+                byteSize: 100, modifiedAt: nil, format: "PNG", pixelSize: nil,
+                contentHash: hash ?? name, perceptualHash: bits.map(PerceptualHash.init),
+                colorSignature: color.map { ColorSignature(samples: [UInt8](repeating: $0, count: 48)) },
+                problem: problem, label: nil, split: nil)
+        }
+        let library = [
+            record("boundary", bits: 0xff),       // Eight differing bits: included.
+            record("too-far", bits: 0x1ff),       // Nine: excluded, even though linked to boundary.
+            record("exact-a", bits: nil, hash: "same"),
+            record("no-color", bits: 0, color: nil),
+            record("broken", bits: 0, problem: .empty),
+            record("close", bits: 1),
+            record("recolored", bits: 0, color: 200),
+            record("exact-b", bits: 0, hash: "same"),
+        ]
+        let candidates = [record("near", bits: 0), record("exact", bits: 0, hash: "same"),
+                          record("missing", bits: nil), record("unreadable", bits: 0, problem: .empty)]
+        let entries = try FolderComparison.compare(library: library, candidates: candidates)
+        #expect(entries.map(\.candidate.relativePath) == ["near", "exact", "missing", "unreadable"])
+        #expect(entries.map(\.kind) == [.near, .exact, .new, .unreadable])
+        #expect(entries[0].matches.map(\.relativePath) == ["boundary", "close", "exact-b"])
+        #expect(entries[1].matches.map(\.relativePath) == ["exact-a", "exact-b"])
+    }
+
     @Test("Comparison separates exact, resized, new and unreadable images")
     func categories() async throws {
         let library = try ImageFixture.Folder()

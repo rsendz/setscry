@@ -41,8 +41,10 @@ public enum LabelSanityChecker {
         labels: [URL: String],
         minimumMargin: Float = 0.02
     ) -> [Suggestion] {
+        guard !Task.isCancelled else { return [] }
         var byLabel: [String: [[Float]]] = [:]
         for (url, embedding) in embeddings {
+            guard !Task.isCancelled else { return [] }
             guard let label = labels[url] else { continue }
             byLabel[label, default: []].append(embedding.values)
         }
@@ -56,6 +58,7 @@ public enum LabelSanityChecker {
         var suggestions: [Suggestion] = []
 
         for (url, embedding) in embeddings {
+            guard !Task.isCancelled else { return [] }
             guard let label = labels[url], let own = centres[label] else { continue }
 
             let ownSimilarity = similarity(embedding.values, own)

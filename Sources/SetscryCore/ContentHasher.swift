@@ -22,6 +22,13 @@ public enum ContentHasher {
             hasher.update(data: chunk)
         }
 
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        let digits = Array("0123456789abcdef".utf8)
+        var hex: [UInt8] = []
+        hex.reserveCapacity(64)
+        for byte in hasher.finalize() {
+            hex.append(digits[Int(byte >> 4)])
+            hex.append(digits[Int(byte & 0x0f)])
+        }
+        return String(decoding: hex, as: UTF8.self)
     }
 }

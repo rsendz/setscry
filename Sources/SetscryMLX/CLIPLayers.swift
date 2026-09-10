@@ -60,17 +60,17 @@ final class CLIPAttention: Module {
         var values = valueProjection(x)
 
         queries = queries.reshaped(batch, length, heads, -1).transposed(0, 2, 1, 3)
-        keys = keys.reshaped(batch, length, heads, -1).transposed(0, 2, 3, 1)
+        keys = keys.reshaped(batch, length, heads, -1).transposed(0, 2, 1, 3)
         values = values.reshaped(batch, length, heads, -1).transposed(0, 2, 1, 3)
 
         let scale = sqrt(1 / Float(queries.dim(-1)))
-        var scores = (queries * scale).matmul(keys)
-        if let mask {
-            scores = scores + mask.asType(scores.dtype)
-        }
-        scores = softmax(scores, axis: -1)
-
-        let output = scores.matmul(values)
+        // The fused kernel avoids materializing the attention-score matrix and
+        // uses float32 softmax accumulation for half-precision inputs.
+        let maskMode: MLXFast.ScaledDotProductAttentionMaskMode =
+            mask.map { .array($0.asType(queries.dtype)) } ?? .none
+        let output = MLXFast.scaledDotProductAttention(
+            queries: queries, keys: keys, values: values, scale: scale, mask: maskMode
+        )
             .transposed(0, 2, 1, 3)
             .reshaped(batch, length, -1)
 
